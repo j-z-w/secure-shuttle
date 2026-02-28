@@ -59,8 +59,8 @@ export default function Home() {
             textShadow: "0 2px 8px rgba(0,0,0,0.4)",
           }}
         >
-          Your secure and seamless way to manage your shuttle experience. Sign
-          in to get started!
+          Description description description description description
+          description description
         </p>
         <a
           href="/signin"
