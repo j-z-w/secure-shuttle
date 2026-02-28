@@ -24,7 +24,7 @@ export default function Home() {
           height: "100vh",
           zIndex: 0,
           backgroundImage:
-            "linear-gradient(rgba(20,20,20,0.7), rgba(20,20,20,0.7)), url('/testbackground.jpg')",
+            "linear-gradient(rgba(20,20,20,0.7), rgba(20,20,20,0.7)), url('/testbackground.webp')",
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
