@@ -7,6 +7,7 @@ import { ClerkProvider,
   UserButton, } from '@clerk/nextjs'
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import SiteNav from "@/app/components/SiteNav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

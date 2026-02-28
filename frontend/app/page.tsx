@@ -23,8 +23,8 @@ export default function Home() {
           width: "100vw",
           height: "100vh",
           zIndex: 0,
-          backgroundImage:
-            "linear-gradient(rgba(20,20,20,0.7), rgba(20,20,20,0.7)), url('/testbackground.jpg')",
+          backgroundImage: "url('/homepageBackground.webp')",
+          // "linear-gradient(rgba(20,20,20,0.7), rgba(20,20,20,0.7)), url('/homepageBackground.webp')",
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
