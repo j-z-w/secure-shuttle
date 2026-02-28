@@ -1,52 +1,56 @@
-// import Image from "next/image";
-// export default function Home() {
-//   return <main className="min-h-screen bg-black"></main>;
-// }
-import Link from "next/link";
+import Image from "next/image";
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
-      {/* Hero Section */}
-      <section className="flex flex-col items-center justify-center text-center py-32 px-6">
-        <h1 className="text-5xl font-bold tracking-tight">
-          Secure Shuttle Payments
-        </h1>
-        <p className="mt-6 text-lg text-neutral-400 max-w-xl">
-          Fast, secure, and reliable payment processing built for modern
-          transportation systems.
-        </p>
-
-        <Link
-          href="/pay"
-          className="mt-8 bg-blue-600 hover:bg-blue-700 transition px-6 py-3 rounded-lg text-lg font-medium"
-        >
-          Make a Payment
-        </Link>
+    <main className="min-h-screen flex flex-col md:flex-row">
+      {/* Left Side */}
+      <section className="md:basis-3/5 flex-1 flex flex-col justify-center items-center bg-[#1d1d1d] text-white p-10 relative">
+        <div className="max-w-md w-full">
+          <div className="mb-8 flex items-center gap-3">
+            <Image
+              src="/logo.webp"
+              alt="Logo"
+              width={500}
+              height={500}
+              className="rounded"
+              priority
+            />
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
+            Welcome!
+          </h1>
+          <p className="text-lg opacity-90 mb-12">Pay for things your way.</p>
+        </div>
       </section>
 
-      {/* Features Section */}
-      <section className="max-w-6xl mx-auto px-6 pb-24">
-        <div className="grid md:grid-cols-3 gap-8">
-          <div className="bg-neutral-900 p-6 rounded-xl">
-            <h3 className="text-xl font-semibold">Secure</h3>
-            <p className="mt-2 text-neutral-400">
-              End-to-end encrypted transactions with fraud protection.
-            </p>
-          </div>
+      {/* Right Side */}
+      <section className="md:basis-2/5 flex-1 flex flex-col justify-center items-center bg-white p-10 shadow-lg">
+        <div className="max-w-sm w-full">
+          <h2 className="text-2xl font-bold mb-6 text-gray-900">Sign In</h2>
 
-          <div className="bg-neutral-900 p-6 rounded-xl">
-            <h3 className="text-xl font-semibold">Fast</h3>
-            <p className="mt-2 text-neutral-400">
-              Process payments in seconds with real-time confirmations.
-            </p>
-          </div>
-
-          <div className="bg-neutral-900 p-6 rounded-xl">
-            <h3 className="text-xl font-semibold">Reliable</h3>
-            <p className="mt-2 text-neutral-400">
-              Built for high-traffic environments like campus transport systems.
-            </p>
+          <form className="space-y-4">
+            <input
+              type="email"
+              placeholder="Email"
+              className="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+              defaultValue=""
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              className="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+            <button
+              type="submit"
+              className="w-full py-2 bg-black text-white rounded font-semibold hover:bg-gray-800 transition"
+            >
+              Login Now
+            </button>
+          </form>
+          <div className="mt-4 text-sm text-gray-500 flex justify-between">
+            <a href="#" className="text-blue-600 underline">
+              Create account.
+            </a>
           </div>
         </div>
       </section>
