@@ -1,5 +1,16 @@
+# Python
+__pycache__/
+*.pyc
 /venv
+
+# Environment
+.env
 .env.local
+
+# Database (if ever used locally)
+*.db
+
+# Node/Convex (if co-located)
 /package-lock.json
 /package.json
 /convex
