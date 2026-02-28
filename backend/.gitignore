@@ -13,7 +13,5 @@ __pycache__/
 # Node/Convex (if co-located)
 /package-lock.json
 /package.json
-/convex
 /node_modules
-/.convex
 /__pycache__
