@@ -1,5 +1,5 @@
 import Image from "next/image";
-// homepage
+//homepage
 export default function Home() {
   return (
     <main
