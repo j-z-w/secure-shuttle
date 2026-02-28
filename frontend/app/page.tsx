@@ -73,9 +73,28 @@ export default function Home() {
             fontWeight: 600,
             fontSize: "1rem",
             boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
+            marginBottom: "1rem",
+            display: "inline-block",
           }}
         >
           Sign In
+        </a>
+
+        <a
+          href="/newEscrow"
+          style={{
+            padding: "0.75rem 2rem",
+            background: "#0070f3",
+            color: "#fff",
+            borderRadius: "6px",
+            textDecoration: "none",
+            fontWeight: 600,
+            fontSize: "1rem",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
+            display: "inline-block",
+          }}
+        >
+          Create New Escrow
         </a>
       </div>
     </main>
