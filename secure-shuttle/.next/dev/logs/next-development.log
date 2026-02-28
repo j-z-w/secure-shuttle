@@ -1,0 +1,16 @@
+[00:06:00.561] Server  ERROR   Error: Cannot find module 'next/dist/compiled/cookie'
+Require stack:
+- /Users/eduardosaito/Documents/Hackathons/secure-shuttle/secure-shuttle/node_modules/next/dist/server/api-utils/get-cookie-parser.js
+- /Users/eduardosaito/Documents/Hackathons/secure-shuttle/secure-shuttle/node_modules/next/dist/shared/lib/router/utils/prepare-destination.js
+- /Users/eduardosaito/Documents/Hackathons/secure-shuttle/secure-shuttle/node_modules/next/dist/shared/lib/router/utils/middleware-route-matcher.js
+- /Users/eduardosaito/Documents/Hackathons/secure-shuttle/secure-shuttle/node_modules/next/dist/server/lib/router-utils/filesystem.js
+- /Users/eduardosaito/Documents/Hackathons/secure-shuttle/secure-shuttle/node_modules/next/dist/server/lib/router-server.js
+- /Users/eduardosaito/Documents/Hackathons/secure-shuttle/secure-shuttle/node_modules/next/dist/server/lib/start-server.js
+[00:06:00.569] Server  ERROR   Error: Cannot find module 'next/dist/compiled/cookie'
+Require stack:
+- /Users/eduardosaito/Documents/Hackathons/secure-shuttle/secure-shuttle/node_modules/next/dist/server/api-utils/get-cookie-parser.js
+- /Users/eduardosaito/Documents/Hackathons/secure-shuttle/secure-shuttle/node_modules/next/dist/shared/lib/router/utils/prepare-destination.js
+- /Users/eduardosaito/Documents/Hackathons/secure-shuttle/secure-shuttle/node_modules/next/dist/shared/lib/router/utils/middleware-route-matcher.js
+- /Users/eduardosaito/Documents/Hackathons/secure-shuttle/secure-shuttle/node_modules/next/dist/server/lib/router-utils/filesystem.js
+- /Users/eduardosaito/Documents/Hackathons/secure-shuttle/secure-shuttle/node_modules/next/dist/server/lib/router-server.js
+- /Users/eduardosaito/Documents/Hackathons/secure-shuttle/secure-shuttle/node_modules/next/dist/server/lib/start-server.js
