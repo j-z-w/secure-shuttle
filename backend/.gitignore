@@ -16,3 +16,4 @@ __pycache__/
 /convex
 /node_modules
 /.convex
+/__pycache__
