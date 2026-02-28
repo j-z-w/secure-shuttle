@@ -6,10 +6,14 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.exceptions import (
+    AuthenticationRequiredError,
     EscrowCancelledError,
     EscrowNotFoundError,
+    ForbiddenActionError,
     InsufficientFundsError,
     InvalidAddressError,
+    InvalidEscrowStateError,
+    InviteTokenError,
     SolanaRPCError,
 )
 from app.routers import escrows, transactions
@@ -66,6 +70,26 @@ async def invalid_address_handler(request: Request, exc: InvalidAddressError):
 @app.exception_handler(EscrowCancelledError)
 async def escrow_cancelled_handler(request: Request, exc: EscrowCancelledError):
     return JSONResponse(status_code=409, content={"detail": exc.detail})
+
+
+@app.exception_handler(AuthenticationRequiredError)
+async def auth_required_handler(request: Request, exc: AuthenticationRequiredError):
+    return JSONResponse(status_code=401, content={"detail": exc.detail})
+
+
+@app.exception_handler(ForbiddenActionError)
+async def forbidden_action_handler(request: Request, exc: ForbiddenActionError):
+    return JSONResponse(status_code=403, content={"detail": exc.detail})
+
+
+@app.exception_handler(InvalidEscrowStateError)
+async def invalid_state_handler(request: Request, exc: InvalidEscrowStateError):
+    return JSONResponse(status_code=409, content={"detail": exc.detail})
+
+
+@app.exception_handler(InviteTokenError)
+async def invite_token_handler(request: Request, exc: InviteTokenError):
+    return JSONResponse(status_code=400, content={"detail": exc.detail})
 
 
 # Health check

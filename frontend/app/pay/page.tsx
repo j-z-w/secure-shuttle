@@ -14,7 +14,7 @@ function validateAmount(value: string): string | null {
   return null;
 }
 
-export default function NewEscrowPage() {
+export default function PayPage() {
   const router = useRouter();
 
   const [label, setLabel] = useState("");
