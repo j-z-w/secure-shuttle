@@ -1,1 +1,7 @@
 /venv
+.env.local
+/package-lock.json
+/package.json
+/convex
+/node_modules
+/.convex
