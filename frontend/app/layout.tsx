@@ -7,7 +7,7 @@ import { ClerkProvider,
   UserButton, } from '@clerk/nextjs'
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import SiteNav from "@/app/components/SiteNav";
+import ClientLayout from "@/app/ClientLayout";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,6 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+<<<<<<< Updated upstream
     <ClerkProvider>
       <html lang="en">
         <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
@@ -53,4 +54,14 @@ export default function RootLayout({
         </html>
       </ClerkProvider>
       );
+=======
+    <html lang="en">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        <ClientLayout>{children}</ClientLayout>
+      </body>
+    </html>
+  );
+>>>>>>> Stashed changes
 }
