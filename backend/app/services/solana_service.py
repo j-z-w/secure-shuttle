@@ -52,6 +52,11 @@ def _parse_pubkey(address: str) -> Pubkey:
         raise InvalidAddressError(address)
 
 
+def validate_address(address: str) -> bool:
+    _parse_pubkey(address)
+    return True
+
+
 def get_balance(public_key_b58: str) -> int:
     """Get balance in lamports for a Solana address."""
     pubkey = _parse_pubkey(public_key_b58)

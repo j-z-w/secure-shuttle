@@ -1,5 +1,5 @@
 class EscrowNotFoundError(Exception):
-    def __init__(self, escrow_id: int):
+    def __init__(self, escrow_id: int | str):
         self.escrow_id = escrow_id
         self.detail = f"Escrow {escrow_id} not found"
 
@@ -25,3 +25,23 @@ class InvalidAddressError(Exception):
 class EscrowCancelledError(Exception):
     def __init__(self, escrow_id: int):
         self.detail = f"Escrow {escrow_id} is already cancelled"
+
+
+class AuthenticationRequiredError(Exception):
+    def __init__(self):
+        self.detail = "Authentication required"
+
+
+class ForbiddenActionError(Exception):
+    def __init__(self, message: str):
+        self.detail = message
+
+
+class InvalidEscrowStateError(Exception):
+    def __init__(self, message: str):
+        self.detail = message
+
+
+class InviteTokenError(Exception):
+    def __init__(self, message: str):
+        self.detail = message
