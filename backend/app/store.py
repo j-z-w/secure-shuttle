@@ -3,51 +3,227 @@ Convex-backed data store for escrows and transactions.
 Replaces the in-memory store with Convex HTTP API calls.
 """
 
+import base64
+import json
 import os
+import secrets
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 import httpx
 from dotenv import load_dotenv
 
-load_dotenv(".env.local")
+_BACKEND_DIR = Path(__file__).resolve().parents[1]
+load_dotenv(_BACKEND_DIR / ".env")
+load_dotenv(_BACKEND_DIR / ".env.local")
 
-CONVEX_URL = os.getenv("NEXT_PUBLIC_CONVEX_URL")
+CONVEX_URL = os.getenv("NEXT_PUBLIC_CONVEX_URL") or os.getenv("CONVEX_URL")
 if not CONVEX_URL:
-    raise RuntimeError("NEXT_PUBLIC_CONVEX_URL not set")
+    raise RuntimeError("Set NEXT_PUBLIC_CONVEX_URL or CONVEX_URL in backend/.env.local")
 
 CONVEX_API = CONVEX_URL.rstrip("/")
+_ESCROW_META_PREFIX = "__ssmeta_v1__:"
+_ESCROW_INSERT_FIELDS = {
+    "public_key",
+    "secret_key",
+    "label",
+    "recipient_address",
+    "sender_address",
+    "expected_amount_lamports",
+    "status",
+    "finalize_nonce",
+    "last_intent_hash",
+    "settled_signature",
+    "failure_reason",
+}
+_ESCROW_UPDATE_FIELDS = {
+    "label",
+    "recipient_address",
+    "sender_address",
+    "expected_amount_lamports",
+    "status",
+    "finalize_nonce",
+    "last_intent_hash",
+    "settled_signature",
+    "failure_reason",
+}
+_ESCROW_META_FIELDS = {
+    "public_id",
+    "creator_user_id",
+    "payer_user_id",
+    "payee_user_id",
+    "sender_claimed_at",
+    "recipient_claimed_at",
+    "join_token_hash",
+    "join_expires_at",
+    "invite_token_hash",
+    "invite_expires_at",
+    "invite_used_at",
+    "accepted_at",
+    "funded_at",
+    "service_marked_complete_at",
+    "disputed_at",
+    "dispute_reason",
+    "version",
+}
 
 
-def _query(function: str, args: dict = {}):
+def _clean_args(args: Optional[dict]) -> dict:
+    if not args:
+        return {}
+    return {k: v for k, v in args.items() if v is not None}
+
+
+def _convex_error_message(kind: str, function: str, data: dict) -> str:
+    base = f"Convex {kind} error in {function}: {data}"
+    error_message = str(data.get("errorMessage", ""))
+    mismatch_markers = (
+        "Could not find public function",
+        "ArgumentValidationError",
+        "Object contains extra field",
+        "Value does not match validator",
+    )
+    if any(marker in error_message for marker in mismatch_markers):
+        return (
+            f"{base}\nDeployment/function mismatch detected. "
+            "Run `npx convex dev` or `npx convex deploy` for this project and ensure "
+            "the backend env points to that deployment URL."
+        )
+    return base
+
+
+def _is_missing_function_error(exc: Exception) -> bool:
+    text = str(exc)
+    return (
+        "Could not find public function" in text
+        or "is not a public function" in text
+    )
+
+
+def _encode_escrow_label(label: Optional[str], meta: dict) -> str:
+    compact_meta = {k: v for k, v in meta.items() if v is not None}
+    payload = {"label": label, "meta": compact_meta}
+    raw = json.dumps(payload, separators=(",", ":"), ensure_ascii=True)
+    token = base64.urlsafe_b64encode(raw.encode("utf-8")).decode("ascii").rstrip("=")
+    return f"{_ESCROW_META_PREFIX}{token}"
+
+
+def _decode_escrow_label(raw_label: Optional[str]) -> tuple[Optional[str], dict]:
+    if not isinstance(raw_label, str) or not raw_label.startswith(_ESCROW_META_PREFIX):
+        return raw_label, {}
+
+    token = raw_label[len(_ESCROW_META_PREFIX) :]
+    padded = token + ("=" * ((4 - len(token) % 4) % 4))
+    try:
+        decoded = base64.urlsafe_b64decode(padded.encode("ascii")).decode("utf-8")
+        payload = json.loads(decoded)
+    except Exception:
+        return raw_label, {}
+
+    label = payload.get("label")
+    meta = payload.get("meta")
+    if not isinstance(meta, dict):
+        meta = {}
+    return label, meta
+
+
+def _query_escrow_list_page(
+    *,
+    status_filter: Optional[str] = None,
+    limit: int = 200,
+    offset: int = 0,
+) -> tuple[int, list[dict]]:
+    args = {"limit": int(limit), "offset": int(offset)}
+    if status_filter:
+        args["status_filter"] = status_filter
+
+    result = _query("convex_escrows:list", args)
+    if isinstance(result, dict) and "items" in result:
+        items = result.get("items") or []
+        total = int(result.get("total", len(items)))
+        return total, list(items)
+    if isinstance(result, list):
+        return len(result), result
+    return 0, []
+
+
+def _list_all_escrow_docs(status_filter: Optional[str] = None) -> list[dict]:
+    batch = 200
+    offset = 0
+    docs: list[dict] = []
+
+    while True:
+        total, items = _query_escrow_list_page(
+            status_filter=status_filter,
+            limit=batch,
+            offset=offset,
+        )
+        if not items:
+            break
+        docs.extend(items)
+        offset += len(items)
+        if len(items) < batch:
+            break
+        if total and offset >= total:
+            break
+    return docs
+
+
+def _query(function: str, args: Optional[dict] = None):
     r = httpx.post(
         f"{CONVEX_API}/api/query",
-        json={"path": function, "args": args},
+        json={"path": function, "args": _clean_args(args)},
     )
     r.raise_for_status()
     data = r.json()
     if data.get("status") != "success":
-        raise RuntimeError(f"Convex query error: {data}")
+        raise RuntimeError(_convex_error_message("query", function, data))
     return data["value"]
 
 
-def _mutation(function: str, args: dict = {}):
+def _mutation(function: str, args: Optional[dict] = None):
     r = httpx.post(
         f"{CONVEX_API}/api/mutation",
-        json={"path": function, "args": args},
+        json={"path": function, "args": _clean_args(args)},
     )
     r.raise_for_status()
     data = r.json()
     if data.get("status") != "success":
-        raise RuntimeError(f"Convex mutation error: {data}")
+        raise RuntimeError(_convex_error_message("mutation", function, data))
     return data["value"]
 
 
 def _to_datetime(ts) -> datetime:
-    """Convert Convex _creationTime (ms timestamp) to datetime."""
+    """Convert Convex timestamp (ms since epoch) to datetime."""
     if isinstance(ts, (int, float)):
         return datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
     return datetime.now(timezone.utc)
+
+
+def _to_datetime_optional(ts) -> Optional[datetime]:
+    """Convert optional Convex timestamp to datetime or None."""
+    if ts is None:
+        return None
+    if isinstance(ts, (int, float)):
+        return datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
+    return None
+
+
+def _dt_to_ms(dt) -> Optional[float]:
+    """Convert a Python datetime to epoch ms for Convex storage."""
+    if dt is None:
+        return None
+    if isinstance(dt, datetime):
+        return dt.timestamp() * 1000
+    if isinstance(dt, (int, float)):
+        return float(dt)
+    return None
+
+
+def _generate_public_id() -> str:
+    """Generate a short, URL-safe public identifier."""
+    return secrets.token_urlsafe(12)
 
 
 def _format_escrow(doc: dict) -> dict:
@@ -55,6 +231,7 @@ def _format_escrow(doc: dict) -> dict:
         return None
     return {
         "id": doc["_id"],
+        "public_id": doc.get("public_id", ""),
         "public_key": doc["public_key"],
         "secret_key": doc["secret_key"],
         "label": doc.get("label"),
@@ -62,10 +239,26 @@ def _format_escrow(doc: dict) -> dict:
         "sender_address": doc.get("sender_address"),
         "expected_amount_lamports": doc.get("expected_amount_lamports"),
         "status": doc["status"],
-        "finalize_nonce": doc["finalize_nonce"],
+        "creator_user_id": doc.get("creator_user_id", ""),
+        "payer_user_id": doc.get("payer_user_id"),
+        "payee_user_id": doc.get("payee_user_id"),
+        "sender_claimed_at": _to_datetime_optional(doc.get("sender_claimed_at")),
+        "recipient_claimed_at": _to_datetime_optional(doc.get("recipient_claimed_at")),
+        "join_token_hash": doc.get("join_token_hash"),
+        "join_expires_at": _to_datetime_optional(doc.get("join_expires_at")),
+        "invite_token_hash": doc.get("invite_token_hash"),
+        "invite_expires_at": _to_datetime_optional(doc.get("invite_expires_at")),
+        "invite_used_at": _to_datetime_optional(doc.get("invite_used_at")),
+        "accepted_at": _to_datetime_optional(doc.get("accepted_at")),
+        "funded_at": _to_datetime_optional(doc.get("funded_at")),
+        "service_marked_complete_at": _to_datetime_optional(doc.get("service_marked_complete_at")),
+        "disputed_at": _to_datetime_optional(doc.get("disputed_at")),
+        "dispute_reason": doc.get("dispute_reason"),
+        "finalize_nonce": doc.get("finalize_nonce", 0),
         "last_intent_hash": doc.get("last_intent_hash"),
         "settled_signature": doc.get("settled_signature"),
         "failure_reason": doc.get("failure_reason"),
+        "version": doc.get("version", 0),
         "created_at": _to_datetime(doc.get("_creationTime")),
         "updated_at": _to_datetime(doc.get("updated_at") or doc.get("_creationTime")),
     }
@@ -93,24 +286,69 @@ def _format_transaction(doc: dict) -> dict:
     }
 
 
+def _prepare_escrow_updates(updates: dict) -> dict:
+    """Convert datetime values in updates dict to epoch ms for Convex."""
+    converted = {}
+    datetime_fields = {
+        "sender_claimed_at", "recipient_claimed_at",
+        "join_expires_at", "invite_expires_at", "invite_used_at",
+        "accepted_at", "funded_at", "service_marked_complete_at",
+        "disputed_at",
+    }
+    for k, v in updates.items():
+        if v is None:
+            continue
+        if k in datetime_fields:
+            converted[k] = _dt_to_ms(v)
+        else:
+            converted[k] = v
+    return converted
+
+
 # ── Escrow functions ──────────────────────────────────────────────────────────
 
 def insert_escrow(data: dict) -> dict:
-    doc = _mutation("escrows:insert", {
+    public_id = _generate_public_id()
+
+    insert_args = {
+        "public_id": public_id,
         "public_key": data["public_key"],
         "secret_key": data["secret_key"],
         "label": data.get("label"),
         "recipient_address": data.get("recipient_address"),
         "sender_address": data.get("sender_address"),
         "expected_amount_lamports": data.get("expected_amount_lamports"),
-        "status": "active",
+        "status": "open",
+        "creator_user_id": data.get("creator_user_id", ""),
         "finalize_nonce": 0,
-    })
+        "version": 0,
+    }
+
+    if data.get("join_token_hash"):
+        insert_args["join_token_hash"] = data["join_token_hash"]
+    if data.get("join_expires_at"):
+        insert_args["join_expires_at"] = _dt_to_ms(data["join_expires_at"])
+    if data.get("payer_user_id"):
+        insert_args["payer_user_id"] = data["payer_user_id"]
+    if data.get("payee_user_id"):
+        insert_args["payee_user_id"] = data["payee_user_id"]
+
+    doc = _mutation("convex_escrows:insert", insert_args)
     return _format_escrow(doc)
 
 
 def get_escrow(escrow_id: str) -> Optional[dict]:
-    doc = _query("escrows:get", {"id": escrow_id})
+    doc = _query("convex_escrows:get", {"id": escrow_id})
+    return _format_escrow(doc) if doc else None
+
+
+def get_escrow_by_public_id(public_id: str) -> Optional[dict]:
+    doc = _query("convex_escrows:getByPublicId", {"public_id": public_id})
+    return _format_escrow(doc) if doc else None
+
+
+def get_escrow_by_invite_hash(invite_token_hash: str) -> Optional[dict]:
+    doc = _query("convex_escrows:getByInviteHash", {"invite_token_hash": invite_token_hash})
     return _format_escrow(doc) if doc else None
 
 
@@ -118,25 +356,31 @@ def list_escrows(
     status_filter: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
+    actor_user_id: Optional[str] = None,
+    mine_only: bool = False,
 ) -> tuple[int, list[dict]]:
-    result = _query("escrows:list", {
+    result = _query("convex_escrows:list", {
         "status_filter": status_filter,
         "limit": limit,
         "offset": offset,
+        "actor_user_id": actor_user_id,
+        "mine_only": mine_only,
     })
     return result["total"], [_format_escrow(e) for e in result["items"]]
 
 
 def update_escrow(escrow_id: str, updates: dict) -> Optional[dict]:
-    clean = {k: v for k, v in updates.items() if v is not None}
-    doc = _mutation("escrows:update", {"id": escrow_id, "updates": clean})
+    clean = _prepare_escrow_updates(updates)
+    if not clean:
+        return get_escrow(escrow_id)
+    doc = _mutation("convex_escrows:update", {"id": escrow_id, "updates": clean})
     return _format_escrow(doc) if doc else None
 
 
 # ── Transaction functions ─────────────────────────────────────────────────────
 
 def insert_transaction(data: dict) -> dict:
-    doc = _mutation("transactions:insert", {
+    doc = _mutation("convex_transactions:insert", {
         "escrow_id": data["escrow_id"],
         "signature": data["signature"],
         "tx_type": data["tx_type"],
@@ -155,17 +399,17 @@ def insert_transaction(data: dict) -> dict:
 
 
 def list_transactions(escrow_id: str) -> list[dict]:
-    docs = _query("transactions:listByEscrow", {"escrow_id": escrow_id})
+    docs = _query("convex_transactions:listByEscrow", {"escrow_id": escrow_id})
     return [_format_transaction(t) for t in docs]
 
 
 def get_transaction_by_signature(signature: str) -> Optional[dict]:
-    doc = _query("transactions:getBySignature", {"signature": signature})
+    doc = _query("convex_transactions:getBySignature", {"signature": signature})
     return _format_transaction(doc) if doc else None
 
 
 def update_transaction_status(signature: str, status: str) -> Optional[dict]:
-    doc = _mutation("transactions:updateStatus", {
+    doc = _mutation("convex_transactions:updateStatus", {
         "signature": signature,
         "status": status,
     })
@@ -174,7 +418,7 @@ def update_transaction_status(signature: str, status: str) -> Optional[dict]:
 
 def update_transaction(signature: str, updates: dict) -> Optional[dict]:
     clean = {k: v for k, v in updates.items() if v is not None}
-    doc = _mutation("transactions:update", {
+    doc = _mutation("convex_transactions:update", {
         "signature": signature,
         "updates": clean,
     })

@@ -92,6 +92,11 @@ async def invite_token_handler(request: Request, exc: InviteTokenError):
     return JSONResponse(status_code=400, content={"detail": exc.detail})
 
 
+@app.exception_handler(RuntimeError)
+async def runtime_error_handler(request: Request, exc: RuntimeError):
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
+
+
 # Health check
 @app.get("/api/v1/health")
 def health():

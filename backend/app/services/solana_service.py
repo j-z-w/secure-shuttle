@@ -17,10 +17,10 @@ from app.exceptions import InvalidAddressError, SolanaRPCError
 client = Client(settings.solana_rpc_url)
 
 TRANSFER_FEE_LAMPORTS = 5000  # standard base fee per signature
-DEFAULT_COMMITMENT = "finalized"
+DEFAULT_COMMITMENT = "confirmed"
 DEFAULT_POLL_SECONDS = 1.0
-DEFAULT_TIMEOUT_SECONDS = 45.0
-DEFAULT_SEND_RETRIES = 2
+DEFAULT_TIMEOUT_SECONDS = 25.0
+DEFAULT_SEND_RETRIES = 1
 
 _COMMITMENT_RANK = {
     "not_found": 0,
@@ -125,6 +125,31 @@ def get_transaction_status(signature_b58: str) -> dict:
         "confirmations": status_info.confirmations,
         "err": str(status_info.err) if status_info.err else None,
     }
+
+
+def list_recent_signatures_for_address(public_key_b58: str, limit: int = 25) -> list[dict]:
+    """List recent transaction signatures seen for an address."""
+    pubkey = _parse_pubkey(public_key_b58)
+    try:
+        response = client.get_signatures_for_address(pubkey, limit=limit)
+    except Exception as e:
+        raise SolanaRPCError(str(e))
+
+    items = response.value or []
+    signatures: list[dict] = []
+    for item in items:
+        signatures.append(
+            {
+                "signature": str(item.signature),
+                "status": _normalize_commitment(getattr(item, "confirmation_status", None)),
+                "slot": getattr(item, "slot", None),
+                "err": str(item.err) if getattr(item, "err", None) else None,
+                "memo": getattr(item, "memo", None),
+                "block_time": getattr(item, "block_time", None),
+            }
+        )
+
+    return signatures
 
 
 def send_transfer_with_confirmation(

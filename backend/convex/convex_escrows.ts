@@ -3,6 +3,7 @@ import { v } from "convex/values";
 
 export const insert = mutation({
   args: {
+    public_id: v.string(),
     public_key: v.string(),
     secret_key: v.string(),
     label: v.optional(v.string()),
@@ -10,13 +11,20 @@ export const insert = mutation({
     sender_address: v.optional(v.string()),
     expected_amount_lamports: v.optional(v.number()),
     status: v.string(),
+    creator_user_id: v.string(),
+    payer_user_id: v.optional(v.string()),
+    payee_user_id: v.optional(v.string()),
+    join_token_hash: v.optional(v.string()),
+    join_expires_at: v.optional(v.number()),
     finalize_nonce: v.number(),
+    version: v.number(),
     last_intent_hash: v.optional(v.string()),
     settled_signature: v.optional(v.string()),
     failure_reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const id = await ctx.db.insert("escrows", args);
+    const now = Date.now();
+    const id = await ctx.db.insert("escrows", { ...args, updated_at: now });
     return await ctx.db.get(id);
   },
 });
@@ -28,20 +36,60 @@ export const get = query({
   },
 });
 
+export const getByPublicId = query({
+  args: { public_id: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("escrows")
+      .withIndex("by_public_id", (q) => q.eq("public_id", args.public_id))
+      .first();
+  },
+});
+
+export const getByInviteHash = query({
+  args: { invite_token_hash: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("escrows")
+      .withIndex("by_invite_token_hash", (q) =>
+        q.eq("invite_token_hash", args.invite_token_hash)
+      )
+      .first();
+  },
+});
+
 export const list = query({
   args: {
     status_filter: v.optional(v.string()),
     limit: v.number(),
     offset: v.number(),
+    actor_user_id: v.optional(v.string()),
+    mine_only: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    let q = ctx.db.query("escrows");
+    let results;
+
     if (args.status_filter) {
-      q = q.withIndex("by_status", (q) => q.eq("status", args.status_filter!));
+      results = await ctx.db
+        .query("escrows")
+        .withIndex("by_status", (q) => q.eq("status", args.status_filter!))
+        .collect();
+    } else {
+      results = await ctx.db.query("escrows").collect();
     }
-    const all = await q.collect();
-    const total = all.length;
-    const page = all.slice(args.offset, args.offset + args.limit);
+
+    // Filter by user if mine_only
+    if (args.mine_only && args.actor_user_id) {
+      results = results.filter(
+        (e) =>
+          e.creator_user_id === args.actor_user_id ||
+          e.payer_user_id === args.actor_user_id ||
+          e.payee_user_id === args.actor_user_id
+      );
+    }
+
+    const total = results.length;
+    const page = results.slice(args.offset, args.offset + args.limit);
     return { total, items: page };
   },
 });
@@ -55,14 +103,31 @@ export const update = mutation({
       sender_address: v.optional(v.string()),
       expected_amount_lamports: v.optional(v.number()),
       status: v.optional(v.string()),
+      creator_user_id: v.optional(v.string()),
+      payer_user_id: v.optional(v.string()),
+      payee_user_id: v.optional(v.string()),
+      sender_claimed_at: v.optional(v.number()),
+      recipient_claimed_at: v.optional(v.number()),
+      join_token_hash: v.optional(v.string()),
+      join_expires_at: v.optional(v.number()),
+      invite_token_hash: v.optional(v.string()),
+      invite_expires_at: v.optional(v.number()),
+      invite_used_at: v.optional(v.number()),
+      accepted_at: v.optional(v.number()),
+      funded_at: v.optional(v.number()),
+      service_marked_complete_at: v.optional(v.number()),
+      disputed_at: v.optional(v.number()),
+      dispute_reason: v.optional(v.string()),
       finalize_nonce: v.optional(v.number()),
       last_intent_hash: v.optional(v.string()),
       settled_signature: v.optional(v.string()),
       failure_reason: v.optional(v.string()),
+      version: v.optional(v.number()),
     }),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.id, args.updates);
+    const now = Date.now();
+    await ctx.db.patch(args.id, { ...args.updates, updated_at: now });
     return await ctx.db.get(args.id);
   },
 });

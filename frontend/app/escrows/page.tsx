@@ -9,8 +9,11 @@ import EscrowCard from "@/app/components/EscrowCard";
 
 const TABS: { label: string; value: EscrowStatus | "all" }[] = [
   { label: "All", value: "all" },
-  { label: "Active", value: "active" },
+  { label: "Roles Pending", value: "roles_pending" },
+  { label: "Funded", value: "funded" },
+  { label: "Service Complete", value: "service_complete" },
   { label: "Released", value: "released" },
+  { label: "Disputed", value: "disputed" },
   { label: "Cancelled", value: "cancelled" },
 ];
 
@@ -21,7 +24,6 @@ export default function EscrowsPage() {
   const [activeTab, setActiveTab] = useState<EscrowStatus | "all">("all");
 
   useEffect(() => {
-    setLoading(true);
     const status = activeTab === "all" ? undefined : activeTab;
     listEscrows(status)
       .then((res) => {
@@ -72,7 +74,10 @@ export default function EscrowsPage() {
           {TABS.map((tab) => (
             <button
               key={tab.value}
-              onClick={() => setActiveTab(tab.value)}
+              onClick={() => {
+                setLoading(true);
+                setActiveTab(tab.value);
+              }}
               className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
                 activeTab === tab.value
                   ? "text-white border-b-2 border-[#0070f3]"

@@ -20,7 +20,7 @@ class EscrowUpdate(BaseModel):
 
 
 class EscrowOut(BaseModel):
-    id: int
+    id: str
     public_id: str
     public_key: str
     label: Optional[str]
@@ -42,7 +42,7 @@ class EscrowOut(BaseModel):
     finalize_nonce: int
     settled_signature: Optional[str]
     failure_reason: Optional[str]
-    version: int
+    version: int = 0
     created_at: datetime
     updated_at: datetime
     join_token: Optional[str] = None
@@ -84,7 +84,7 @@ class CancelOut(BaseModel):
 
 
 class ReconcileOut(BaseModel):
-    escrow_id: int
+    escrow_id: str
     escrow_status: str
     updated_transactions: int
 
@@ -117,6 +117,10 @@ class FundingSyncOut(BaseModel):
     escrow: EscrowOut
     balance_lamports: int
     funded: bool
+    funding_transaction_signature: Optional[str] = None
+    funding_transaction_status: Optional[str] = None
+    funding_transaction_confirmed: bool = False
+    minimum_required_lamports: Optional[int] = None
 
 
 class ServiceCompleteRequest(BaseModel):
