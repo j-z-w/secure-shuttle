@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
@@ -8,6 +8,8 @@ import { listEscrows } from "@/app/lib/api";
 import type { Escrow, EscrowStatus } from "@/app/lib/types";
 import EscrowCard from "@/app/components/EscrowCard";
 import BackButton from "@/app/components/BackButton";
+
+const AUTO_REFRESH_MS = 5000;
 
 const TABS: { label: string; value: EscrowStatus | "all" }[] = [
   { label: "All", value: "all" },
@@ -43,12 +45,21 @@ export default function EscrowsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<EscrowStatus | "all">(initialTab);
   const unauthenticated = isLoaded && !isSignedIn;
+  const refreshInFlightRef = useRef(false);
 
-  useEffect(() => {
-    if (!isLoaded || !isSignedIn) return;
-    const status = activeTab === "all" ? undefined : activeTab;
-    listEscrows(status, scope)
-      .then((res) => {
+  const loadEscrows = useCallback(
+    async (silent = false) => {
+      if (!isLoaded || !isSignedIn) return;
+      if (refreshInFlightRef.current) return;
+
+      refreshInFlightRef.current = true;
+      if (!silent) {
+        setLoading(true);
+      }
+
+      const status = activeTab === "all" ? undefined : activeTab;
+      try {
+        const res = await listEscrows(status, scope);
         const sorted = [...res.items].sort(
           (a, b) =>
             new Date(b.updated_at ?? b.created_at).getTime() -
@@ -56,13 +67,48 @@ export default function EscrowsPage() {
         );
         setEscrows(sorted);
         setTotal(res.total);
-      })
-      .catch(() => {
-        setEscrows([]);
-        setTotal(0);
-      })
-      .finally(() => setLoading(false));
-  }, [activeTab, isLoaded, isSignedIn, scope]);
+      } catch {
+        if (!silent) {
+          setEscrows([]);
+          setTotal(0);
+        }
+      } finally {
+        refreshInFlightRef.current = false;
+        if (!silent) {
+          setLoading(false);
+        }
+      }
+    },
+    [activeTab, isLoaded, isSignedIn, scope]
+  );
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+    void loadEscrows(false);
+  }, [isLoaded, isSignedIn, loadEscrows]);
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      void loadEscrows(true);
+    };
+
+    const timer = window.setInterval(refresh, AUTO_REFRESH_MS);
+    document.addEventListener("visibilitychange", refresh);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [isLoaded, isSignedIn, loadEscrows]);
+
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      setLoading(false);
+    }
+  }, [isLoaded, isSignedIn]);
 
   return (
     <div className="relative min-h-screen text-white">
@@ -88,6 +134,9 @@ export default function EscrowsPage() {
             </h1>
             <p className="text-sm text-neutral-500 mt-1">
               {total} escrow{total !== 1 ? "s" : ""}
+            </p>
+            <p className="text-xs text-neutral-600 mt-1">
+              Auto-refresh every {Math.round(AUTO_REFRESH_MS / 1000)}s
             </p>
             <p className="text-xs text-neutral-600 mt-1">
               Scope: {scope === "all" ? "All escrows" : "My escrows"}
