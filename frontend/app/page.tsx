@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useUser, SignOutButton } from "@clerk/nextjs";
-import ZigZag from './instructions';
+import ZigZag from "./instructions";
 
 export default function Home() {
   const { user } = useUser();
@@ -44,11 +44,7 @@ export default function Home() {
                 className="hover:scale-105 transition-transform"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/sign-in.svg"
-                  alt="Sign In"
-                  className="h-11 block"
-                />
+                <img src="/sign-in.svg" alt="Sign In" className="h-11 block" />
               </a>
             )}
 
@@ -251,12 +247,10 @@ export default function Home() {
                   />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold mb-2">
-                Dispute Resolution
-              </h3>
+              <h3 className="text-xl font-semibold mb-2">Dispute Resolution</h3>
               <p className="text-neutral-400 leading-relaxed">
-                If something goes wrong, either party can raise a dispute.
-                Funds stay locked until the issue is resolved fairly.
+                If something goes wrong, either party can raise a dispute. Funds
+                stay locked until the issue is resolved fairly.
               </p>
             </div>
           </div>

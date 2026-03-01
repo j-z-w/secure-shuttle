@@ -28,7 +28,7 @@ export default function ClientLayout({
     if (!target) return;
 
     const interactive = target.closest(
-      'button, a, [role="button"], input[type="submit"], input[type="button"]'
+      'button, a, [role="button"], input[type="submit"], input[type="button"]',
     );
     if (interactive) {
       playSound(SOUNDS.button);
