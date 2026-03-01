@@ -49,7 +49,12 @@ export default function EscrowsPage() {
     const status = activeTab === "all" ? undefined : activeTab;
     listEscrows(status, scope)
       .then((res) => {
-        setEscrows(res.items);
+        const sorted = [...res.items].sort(
+          (a, b) =>
+            new Date(b.updated_at ?? b.created_at).getTime() -
+            new Date(a.updated_at ?? a.created_at).getTime()
+        );
+        setEscrows(sorted);
         setTotal(res.total);
       })
       .catch(() => {
