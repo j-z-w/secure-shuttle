@@ -172,7 +172,9 @@ export default function Dashboard() {
       {/* Sidebar */}
       <aside
         className={`z-20 fixed top-0 left-0 h-screen bg-neutral-900/80 backdrop-blur-lg border-r border-neutral-800 transition-all duration-300 flex-shrink-0 overflow-hidden ${
-          sidebarOpen ? "w-64 p-4" : "w-0 p-0 md:w-16 md:p-4 -translate-x-full md:translate-x-0"
+          sidebarOpen
+            ? "w-64 p-4"
+            : "w-0 p-0 md:w-16 md:p-4 -translate-x-full md:translate-x-0"
         }`}
       >
         <div className="flex items-center gap-2 mb-6">
@@ -301,15 +303,30 @@ export default function Dashboard() {
             onClick={() => setSidebarOpen((o) => !o)}
             aria-label="Toggle sidebar"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16"
+              />
             </svg>
           </button>
           <Link href="/">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-icon.webp" alt="Home" className="h-8 w-8 object-contain" />
+            <img
+              src="/logo-icon.webp"
+              alt="Home"
+              className="h-8 w-8 object-contain"
+            />
           </Link>
-          <div className="w-6" />{/* spacer */}
+          <div className="w-6" />
+          {/* spacer */}
         </div>
 
         {/* Page Title */}
@@ -332,7 +349,9 @@ export default function Dashboard() {
             <div className="text-lg sm:text-2xl font-bold text-emerald-400 truncate">
               {lamportsToSol(releasedLamports).toFixed(4)} SOL
             </div>
-            <div className="text-neutral-600 text-xs mt-1">Released escrows</div>
+            <div className="text-neutral-600 text-xs mt-1">
+              Released escrows
+            </div>
           </div>
           <div className="bg-neutral-900/60 backdrop-blur rounded-2xl border border-neutral-800 p-4 flex flex-col">
             <div className="text-neutral-500 text-xs uppercase mb-1">
@@ -341,7 +360,9 @@ export default function Dashboard() {
             <div className="text-lg sm:text-2xl font-bold text-yellow-400 truncate">
               {lamportsToSol(pendingLamports).toFixed(4)} SOL
             </div>
-            <div className="text-neutral-600 text-xs mt-1">Awaiting release</div>
+            <div className="text-neutral-600 text-xs mt-1">
+              Awaiting release
+            </div>
           </div>
           <div className="bg-neutral-900/60 backdrop-blur rounded-2xl border border-neutral-800 p-4 flex flex-col">
             <div className="text-neutral-500 text-xs uppercase mb-1">
@@ -372,7 +393,9 @@ export default function Dashboard() {
             <div className="font-semibold mb-1 text-white">
               Transaction History
             </div>
-            <div className="text-xs text-neutral-500 mb-3">Balance over time</div>
+            <div className="text-xs text-neutral-500 mb-3">
+              Balance over time
+            </div>
             <div className="h-36 flex items-center justify-center text-neutral-500 border border-dashed border-neutral-700 rounded-lg">
               {loading
                 ? "Loading..."
@@ -380,9 +403,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="bg-neutral-900/60 backdrop-blur rounded-2xl border border-neutral-800 p-5">
-            <div className="font-semibold mb-1 text-white">
-              Active Escrows
-            </div>
+            <div className="font-semibold mb-1 text-white">Active Escrows</div>
             <div className="text-xs text-neutral-500 mb-3">
               Currently in progress
             </div>
@@ -432,9 +453,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="bg-neutral-900/60 backdrop-blur rounded-2xl border border-neutral-800 p-5">
-            <div className="font-semibold mb-1 text-white">
-              Counterparties
-            </div>
+            <div className="font-semibold mb-1 text-white">Counterparties</div>
             <div className="text-xs text-neutral-500 mb-3">
               Buyers & sellers by account
             </div>
@@ -443,9 +462,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="bg-neutral-900/60 backdrop-blur rounded-2xl border border-neutral-800 p-5">
-            <div className="font-semibold mb-1 text-white">
-              Recent Activity
-            </div>
+            <div className="font-semibold mb-1 text-white">Recent Activity</div>
             <div className="text-xs text-neutral-500 mb-3">
               Latest escrow events
             </div>
