@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import BackButton from "@/app/components/BackButton";
@@ -304,14 +303,9 @@ export default function ProfilePage() {
                         {outcomeForDeal(row.escrow)}
                       </td>
                       <td className="px-4 py-3">
-                        <Link
-                          href={`/escrow/${encodeURIComponent(
-                            row.escrow.public_id
-                          )}`}
-                          className="text-[#62a5ff] hover:text-[#8fc1ff]"
-                        >
+                        <span className="text-neutral-200 font-mono">
                           {row.escrow.public_id}
-                        </Link>
+                        </span>
                       </td>
                     </tr>
                   ))}
