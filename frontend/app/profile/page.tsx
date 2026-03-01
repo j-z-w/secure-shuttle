@@ -13,12 +13,21 @@ export default async function ProfilePage() {
   const user = await currentUser();
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white px-6 py-24">
-      <div className="max-w-2xl mx-auto mb-4">
+    <main className="relative min-h-screen text-white px-4 sm:px-6 py-16 sm:py-24">
+      <div
+        className="absolute inset-0 z-0"
+        style={{
+          backgroundImage: "url('/backgroundStars.webp')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      />
+      <div className="relative z-10 max-w-2xl mx-auto mb-4">
         <BackButton fallbackHref="/dashboard" />
       </div>
 
-      <div className="max-w-2xl mx-auto rounded-xl border border-neutral-800 bg-neutral-900 p-8 shadow-lg">
+      <div className="relative z-10 max-w-2xl mx-auto rounded-2xl border border-neutral-800 bg-neutral-900/60 backdrop-blur p-6 sm:p-8 shadow-lg">
         <h1 className="text-3xl font-semibold mb-6">Profile</h1>
 
         <div className="flex items-center gap-4 mb-6">

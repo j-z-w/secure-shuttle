@@ -161,15 +161,23 @@ export default function Dashboard() {
         }}
       />
 
+      {/* Mobile overlay backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-10 bg-black/50 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
-        className={`z-20 fixed top-0 left-0 h-screen bg-neutral-900/70 backdrop-blur border-r border-neutral-800 transition-all duration-300 flex-shrink-0 p-4 ${
-          sidebarOpen ? "w-64" : "w-16"
+        className={`z-20 fixed top-0 left-0 h-screen bg-neutral-900/80 backdrop-blur-lg border-r border-neutral-800 transition-all duration-300 flex-shrink-0 overflow-hidden ${
+          sidebarOpen ? "w-64 p-4" : "w-0 p-0 md:w-16 md:p-4 -translate-x-full md:translate-x-0"
         }`}
       >
         <div className="flex items-center gap-2 mb-6">
           <button
-            className="text-neutral-400 hover:text-white focus:outline-none"
+            className="hidden md:block text-neutral-400 hover:text-white focus:outline-none"
             onClick={() => setSidebarOpen((open) => !open)}
             aria-label="Toggle sidebar"
           >
@@ -282,10 +290,28 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main
-        className={`relative z-10 flex-1 transition-all duration-300 p-6 pt-4 ${
+        className={`relative z-10 flex-1 transition-all duration-300 p-4 sm:p-6 pt-16 md:pt-4 ${
           sidebarOpen ? "md:ml-64" : "md:ml-16"
         }`}
       >
+        {/* Mobile top bar */}
+        <div className="fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 py-3 bg-neutral-900/70 backdrop-blur border-b border-neutral-800 md:hidden">
+          <button
+            className="text-neutral-400 hover:text-white"
+            onClick={() => setSidebarOpen((o) => !o)}
+            aria-label="Toggle sidebar"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <Link href="/">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-icon.webp" alt="Home" className="h-8 w-8 object-contain" />
+          </Link>
+          <div className="w-6" />{/* spacer */}
+        </div>
+
         {/* Page Title */}
         <h1 className="text-xl font-bold mb-4 text-white">
           Dashboard Overview
@@ -303,7 +329,7 @@ export default function Dashboard() {
             <div className="text-neutral-500 text-xs uppercase mb-1">
               Available Balance
             </div>
-            <div className="text-2xl font-bold text-emerald-400">
+            <div className="text-lg sm:text-2xl font-bold text-emerald-400 truncate">
               {lamportsToSol(releasedLamports).toFixed(4)} SOL
             </div>
             <div className="text-neutral-600 text-xs mt-1">Released escrows</div>
@@ -312,7 +338,7 @@ export default function Dashboard() {
             <div className="text-neutral-500 text-xs uppercase mb-1">
               Pending in Escrow
             </div>
-            <div className="text-2xl font-bold text-yellow-400">
+            <div className="text-lg sm:text-2xl font-bold text-yellow-400 truncate">
               {lamportsToSol(pendingLamports).toFixed(4)} SOL
             </div>
             <div className="text-neutral-600 text-xs mt-1">Awaiting release</div>
@@ -321,7 +347,7 @@ export default function Dashboard() {
             <div className="text-neutral-500 text-xs uppercase mb-1">
               Active Escrows
             </div>
-            <div className="text-2xl font-bold text-indigo-400">
+            <div className="text-lg sm:text-2xl font-bold text-indigo-400">
               {activeEscrows.length}
             </div>
             <div className="text-neutral-600 text-xs mt-1">In progress</div>
@@ -330,7 +356,7 @@ export default function Dashboard() {
             <div className="text-neutral-500 text-xs uppercase mb-1">
               Completed
             </div>
-            <div className="text-2xl font-bold text-white">
+            <div className="text-lg sm:text-2xl font-bold text-white">
               {
                 historyEscrows.filter((escrow) => escrow.status === "released")
                   .length
@@ -342,7 +368,7 @@ export default function Dashboard() {
 
         {/* Balance chart + Active escrows */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
-          <div className="bg-neutral-900/60 backdrop-blur rounded-2xl border border-neutral-800 p-5 col-span-2">
+          <div className="bg-neutral-900/60 backdrop-blur rounded-2xl border border-neutral-800 p-5 md:col-span-2">
             <div className="font-semibold mb-1 text-white">
               Transaction History
             </div>

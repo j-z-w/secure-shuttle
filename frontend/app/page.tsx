@@ -22,15 +22,15 @@ export default function Home() {
         />
 
         {/* Nav bar */}
-        <nav className="relative z-10 flex items-center justify-end px-6 sm:px-10 py-5">
-          <div className="flex items-center gap-3">
+        <nav className="relative z-10 flex items-center justify-end px-4 sm:px-10 py-4 sm:py-5">
+          <div className="flex items-center gap-2 sm:gap-3">
             {!user && (
               <a
                 href="/signin"
                 className="hover:scale-105 transition-transform"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/sign-in.svg" alt="Sign In" className="h-11 block" />
+                <img src="/sign-in.svg" alt="Sign In" className="h-8 sm:h-11 block" />
               </a>
             )}
 
@@ -43,7 +43,7 @@ export default function Home() {
                 <img
                   src="/dashboard.svg"
                   alt="Dashboard"
-                  className="h-11 block"
+                  className="h-8 sm:h-11 block"
                 />
               </a>
             )}
@@ -55,7 +55,7 @@ export default function Home() {
                   <img
                     src="/log_out.webp"
                     alt="Log Out"
-                    className="h-11 block"
+                    className="h-8 sm:h-11 block"
                   />
                 </button>
               </SignOutButton>
@@ -71,7 +71,7 @@ export default function Home() {
                 <img
                   src={user.imageUrl}
                   alt="Profile"
-                  className="h-11 w-11 rounded-full object-cover ring-2 ring-neutral-600 hover:ring-indigo-500 transition-all"
+                  className="h-8 w-8 sm:h-11 sm:w-11 rounded-full object-cover ring-2 ring-neutral-600 hover:ring-indigo-500 transition-all"
                 />
               </a>
             )}
@@ -85,7 +85,7 @@ export default function Home() {
             alt="Secure Shuttle"
             width={180}
             height={180}
-            className="drop-shadow-[0_0_80px_rgba(99,102,241,0.35)]"
+            className="w-28 h-28 sm:w-[180px] sm:h-[180px] drop-shadow-[0_0_80px_rgba(99,102,241,0.35)]"
             priority
           />
 
