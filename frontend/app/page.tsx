@@ -133,7 +133,7 @@ export default function Home() {
           )}
 
           <SignOutButton>
-          <button  
+          <button className = "cursor-pointer" 
               style={{
                 padding: "0.75rem 2rem",
                 background: "#0070f3",
