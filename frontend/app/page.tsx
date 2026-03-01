@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useUser, SignOutButton } from "@clerk/nextjs";
+import ZigZag from './instructions';
 //homepage
 export default function Home() {
   const { user } = useUser();
@@ -134,7 +135,6 @@ export default function Home() {
           </p>
         </div>
       </div>
-
       <div
         style={{
           minHeight: "100vh",
@@ -145,6 +145,7 @@ export default function Home() {
           backgroundRepeat: "no-repeat",
         }}
       />
+      
     </main>
   );
 }
