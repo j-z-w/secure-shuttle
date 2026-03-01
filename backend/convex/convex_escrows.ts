@@ -20,7 +20,7 @@ export const insert = mutation({
     return await ctx.db.get(id);
   },
 });
-
+//glorg
 export const get = query({
   args: { id: v.id("escrows") },
   handler: async (ctx, args) => {
