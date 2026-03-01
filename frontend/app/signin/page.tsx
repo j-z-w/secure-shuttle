@@ -1,4 +1,6 @@
 import Image from "next/image";
+import { ClerkProvider,
+  SignIn,} from '@clerk/nextjs'
 
 export default function Home() {
   return (
@@ -24,36 +26,11 @@ export default function Home() {
       </section>
 
       {/* Right Side */}
+      <ClerkProvider>
       <section className="md:basis-2/5 flex-1 flex flex-col justify-center items-center bg-white p-10 shadow-lg">
-        <div className="max-w-sm w-full">
-          <h2 className="text-2xl font-bold mb-6 text-gray-900">Sign In</h2>
-
-          <form className="space-y-4">
-            <input
-              type="email"
-              placeholder="Email"
-              className="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-              defaultValue=""
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              className="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
-            <button
-              type="submit"
-              className="w-full py-2 bg-black text-white rounded font-semibold hover:bg-gray-800 transition"
-            >
-              Login Now
-            </button>
-          </form>
-          <div className="mt-4 text-sm text-gray-500 flex justify-between">
-            <a href="#" className="text-blue-600 underline">
-              Create account.
-            </a>
-          </div>
-        </div>
+      <SignIn routing="hash"/>
       </section>
+      </ClerkProvider>
     </main>
   );
 }
