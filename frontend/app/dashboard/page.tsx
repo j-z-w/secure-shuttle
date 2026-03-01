@@ -191,7 +191,7 @@ export default function Dashboard() {
         <nav className="space-y-1">
           {sidebarOpen && (
             <div className="text-gray-400 uppercase text-xs mb-2 px-3">
-              Dashboards
+              Dashboard
             </div>
           )}
           <Link
@@ -209,7 +209,7 @@ export default function Dashboard() {
 
           {sidebarOpen && (
             <div className="text-gray-400 uppercase text-xs mt-5 mb-2 px-3">
-              Escrow
+              Escrow Activity
             </div>
           )}
           <Link
@@ -231,10 +231,10 @@ export default function Dashboard() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/icons-escrow.webp"
-              alt="Escrows"
+              alt="Escrow Activity"
               className="w-4 h-4 shrink-0 object-contain"
             />
-            {sidebarOpen && "Escrows"}
+            {sidebarOpen && "Escrow Activity"}
           </Link>
 
           {sidebarOpen && (
