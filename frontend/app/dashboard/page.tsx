@@ -23,6 +23,13 @@ function lamportsToSol(lamports: number) {
   return lamports / 1_000_000_000;
 }
 
+function safeLamports(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+  return value;
+}
+
 function formatTime(input: string) {
   const date = new Date(input);
   if (Number.isNaN(date.getTime())) return "-";
@@ -223,9 +230,11 @@ export default function Dashboard() {
     for (const escrow of escrows) {
       const key = dateKey(escrow.updated_at || escrow.created_at);
       if (!volumeMap.has(key)) continue;
+      const escrowLamports = safeLamports(escrow.expected_amount_lamports);
+      const nextVolume = (volumeMap.get(key) ?? 0) + lamportsToSol(escrowLamports);
       volumeMap.set(
         key,
-        (volumeMap.get(key) ?? 0) + lamportsToSol(escrow.expected_amount_lamports ?? 0),
+        Number.isFinite(nextVolume) ? nextVolume : volumeMap.get(key) ?? 0,
       );
       countMap.set(key, (countMap.get(key) ?? 0) + 1);
     }
@@ -237,7 +246,12 @@ export default function Dashboard() {
       count: countMap.get(key) ?? 0,
     }));
 
-    const maxVolume = Math.max(1, ...points.map((point) => point.volume));
+    const maxVolume = Math.max(
+      1,
+      ...points.map((point) =>
+        Number.isFinite(point.volume) && point.volume > 0 ? point.volume : 0,
+      ),
+    );
     const maxCount = Math.max(1, ...points.map((point) => point.count));
 
     return { points, maxVolume, maxCount };
@@ -245,14 +259,23 @@ export default function Dashboard() {
 
   const historyLinePath = useMemo(() => {
     const { points, maxVolume } = historySeries;
-    if (points.length === 0) return "";
+    if (points.length < 2 || !Number.isFinite(maxVolume) || maxVolume <= 0) {
+      return "";
+    }
     const width = 100;
     const height = 100;
-    return points
-      .map((point, index) => {
+    const normalized = points.map((point, index) => {
+      const clampedVolume =
+        Number.isFinite(point.volume) && point.volume > 0 ? point.volume : 0;
         const x = (index / Math.max(1, points.length - 1)) * width;
-        const y = height - (point.volume / maxVolume) * height;
-        return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
+      const y = height - (clampedVolume / maxVolume) * height;
+      const safeY = Number.isFinite(y) ? Math.min(height, Math.max(0, y)) : height;
+      return { x, y: safeY };
+    });
+
+    return normalized
+      .map((point, index) => {
+        return `${index === 0 ? "M" : "L"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`;
       })
       .join(" ");
   }, [historySeries]);
@@ -522,7 +545,7 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <div className="h-full flex flex-col justify-between">
-                  <div className="relative h-[112px] rounded-md bg-neutral-950/60 border border-neutral-800 px-2 pt-2 pb-1">
+                  <div className="relative h-[112px] rounded-md bg-neutral-950/60 border border-neutral-800 px-2 pt-2 pb-1 overflow-hidden">
                     <div className="absolute inset-x-2 bottom-1 h-[96px] flex items-end gap-1">
                       {historySeries.points.map((point) => (
                         <div key={point.key} className="flex-1 flex items-end">
@@ -542,16 +565,18 @@ export default function Dashboard() {
                     <svg
                       viewBox="0 0 100 100"
                       preserveAspectRatio="none"
-                      className="absolute inset-2 pointer-events-none"
+                      className="absolute inset-2 pointer-events-none overflow-hidden"
                     >
-                      <path
-                        d={historyLinePath}
-                        fill="none"
-                        stroke="rgb(52 211 153)"
-                        strokeWidth="2.2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
+                      {historyLinePath ? (
+                        <path
+                          d={historyLinePath}
+                          fill="none"
+                          stroke="rgb(52 211 153)"
+                          strokeWidth="2.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      ) : null}
                     </svg>
                   </div>
                   <div className="flex items-center justify-between text-[11px] text-neutral-500 mt-2">
