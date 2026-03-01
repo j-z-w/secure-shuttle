@@ -1,6 +1,5 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import ProfileContent from "./profile-content";
 
 export default async function ProfilePage() {
   const { userId } = await auth();
@@ -12,10 +11,27 @@ export default async function ProfilePage() {
   const user = await currentUser();
 
   return (
-    <ProfileContent
-      fullName={user?.fullName ?? "User"}
-      email={user?.primaryEmailAddress?.emailAddress ?? ""}
-      imageUrl={user?.imageUrl ?? "/userpfp.jpg"}
-    />
+    <main className="min-h-screen bg-neutral-950 text-white px-6 py-24">
+      <div className="max-w-2xl mx-auto rounded-xl border border-neutral-800 bg-neutral-900 p-8 shadow-lg">
+        <h1 className="text-3xl font-semibold mb-6">Profile</h1>
+
+        <div className="flex items-center gap-4 mb-6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={user?.imageUrl ?? ""}
+            alt="Profile"
+            className="h-16 w-16 rounded-full object-cover bg-neutral-800"
+          />
+          <div>
+            <p className="text-lg font-medium">{user?.fullName ?? "User"}</p>
+            <p className="text-neutral-400 text-sm">
+              {user?.primaryEmailAddress?.emailAddress}
+            </p>
+          </div>
+        </div>
+
+        <p className="text-neutral-300 text-sm">This is your profile page.</p>
+      </div>
+    </main>
   );
 }

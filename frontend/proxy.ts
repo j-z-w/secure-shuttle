@@ -12,7 +12,7 @@ export default clerkMiddleware(async (auth, req) => {
   }
 
   if (userId && req.nextUrl.pathname === "/signin") {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+    return NextResponse.redirect(new URL("/", req.url));
   }
 
   if (isSignedRoute(req) && !userId) {
