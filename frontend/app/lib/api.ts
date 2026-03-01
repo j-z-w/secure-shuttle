@@ -187,11 +187,18 @@ export async function getEscrowByPublicId(publicId: string): Promise<Escrow> {
 
 export async function listEscrows(
   status?: EscrowStatus,
-  scope: "mine" | "all" = "mine"
+  scope: "mine" | "all" = "mine",
+  options?: { limit?: number; offset?: number }
 ): Promise<EscrowListResponse> {
   const query = new URLSearchParams();
   if (status) query.set("status", status);
   query.set("scope", scope);
+  if (typeof options?.limit === "number") {
+    query.set("limit", String(options.limit));
+  }
+  if (typeof options?.offset === "number") {
+    query.set("offset", String(options.offset));
+  }
   const params = query.toString() ? `?${query.toString()}` : "";
   return request<EscrowListResponse>(`/api/v1/escrows/${params}`);
 }

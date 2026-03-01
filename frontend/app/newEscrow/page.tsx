@@ -60,14 +60,31 @@ export default function NewEscrowPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#1d1d1d] text-white">
-      <div className="pointer-events-none absolute inset-x-0 top-16 flex justify-center overflow-hidden">
-        <div className="w-[600px] h-[400px] bg-[#0070f3]/6 rounded-full blur-[120px]" />
-      </div>
+    <div className="relative min-h-screen text-white overflow-hidden">
+      {/* Background — same as homepage */}
+      <div
+        className="absolute inset-0 z-0"
+        style={{
+          backgroundImage: "url('/backgroundStars.webp')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      />
 
-      <div className="relative max-w-lg mx-auto px-4 sm:px-6 py-12 sm:py-20">
+      <div className="relative z-10 max-w-lg mx-auto px-4 sm:px-6 py-12 sm:py-20">
         <div className="mb-6">
           <BackButton fallbackHref="/dashboard" />
+        </div>
+
+        {/* Logo icon */}
+        <div className="flex justify-center mb-6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo-icon.webp"
+            alt="Secure Shuttle"
+            className="h-20 w-20 drop-shadow-[0_0_40px_rgba(99,102,241,0.3)]"
+          />
         </div>
 
         {/* Header */}
@@ -76,13 +93,15 @@ export default function NewEscrowPage() {
             Create Escrow
           </h1>
           <p className="mt-3 text-neutral-400">
-            Set up a payment — you&apos;ll get a link to share with the other
-            party
+            Set up a payment with ease.
+          </p>
+          <p className="mt-1 text-neutral-400">
+            You&apos;ll get a link to share with the other party.
           </p>
         </div>
 
         {/* Form */}
-        <div className="bg-neutral-900 rounded-xl p-6 sm:p-8 border border-neutral-800">
+        <div className="bg-neutral-900/60 backdrop-blur rounded-2xl p-6 sm:p-8 border border-neutral-800">
           <div className="space-y-6">
             <div>
               <label className="block text-sm text-neutral-400 mb-1.5">
@@ -93,7 +112,7 @@ export default function NewEscrowPage() {
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder="e.g. Vancouver → Whistler shuttle"
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 text-white placeholder-neutral-500 outline-none transition-colors focus:border-[#0070f3]"
+                className="w-full bg-neutral-800/70 border border-neutral-700 rounded-lg px-4 py-3 text-white placeholder-neutral-500 outline-none transition-colors focus:border-indigo-500"
               />
             </div>
 
@@ -115,7 +134,7 @@ export default function NewEscrowPage() {
             <button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="w-full bg-[#0070f3] hover:bg-[#005bc4] disabled:bg-[#003d80] transition-colors py-3 rounded-lg font-semibold cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 transition-all py-3 rounded-lg font-semibold cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(99,102,241,0.3)]"
             >
               {isSubmitting ? (
                 <>
