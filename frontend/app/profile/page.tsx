@@ -1,159 +1,324 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import BackButton from "@/app/components/BackButton";
-import CopyButton from "@/app/components/CopyButton";
 import ProfileImageUpload from "@/app/components/ProfileImageUpload";
+import { getEscrowRatingState, listEscrows } from "@/app/lib/api";
+import type { Escrow } from "@/app/lib/types";
 
-function formatDate(value?: Date | null) {
-  if (!value) return "—";
-  return value.toLocaleString();
+const TERMINAL_STATUSES = new Set(["released", "cancelled"]);
+const ESCROW_PAGE_SIZE = 100;
+const RATING_FETCH_CONCURRENCY = 6;
+
+type DealHistoryRow = {
+  escrow: Escrow;
+  receivedScore: number | null;
+};
+
+function formatSol(lamports: number | null | undefined): string {
+  if (!lamports || lamports <= 0) return "-";
+  return `${(lamports / 1_000_000_000).toFixed(4)} SOL`;
 }
 
-function formatRole(role: unknown) {
-  if (typeof role !== "string" || role.trim().length === 0) return "User";
-  return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+function formatDate(value: string): string {
+  const ts = Date.parse(value);
+  if (Number.isNaN(ts)) return "-";
+  return new Date(ts).toLocaleString();
 }
 
-function shortId(id: string) {
-  if (id.length <= 16) return id;
-  return `${id.slice(0, 8)}...${id.slice(-6)}`;
+function roleForDeal(escrow: Escrow, userId: string): string {
+  const isSender = escrow.payer_user_id === userId;
+  const isRecipient = escrow.payee_user_id === userId;
+  if (isSender && isRecipient) return "Sender + Recipient";
+  if (isSender) return "Sender";
+  if (isRecipient) return "Recipient";
+  if (escrow.creator_user_id === userId) return "Creator";
+  return "Participant";
 }
 
-export default async function ProfilePage() {
-  const { userId } = await auth();
+function outcomeForDeal(escrow: Escrow): string {
+  if (escrow.status === "released") return "Released";
+  if (escrow.status === "cancelled") return "Cancelled";
+  return escrow.status;
+}
 
-  if (!userId) {
-    redirect("/signin");
+function dealTimestampMs(escrow: Escrow): number {
+  const updated = Date.parse(escrow.updated_at);
+  if (!Number.isNaN(updated)) return updated;
+  const created = Date.parse(escrow.created_at);
+  if (!Number.isNaN(created)) return created;
+  return 0;
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<R>
+): Promise<R[]> {
+  if (items.length === 0) return [];
+  const out: R[] = new Array(items.length);
+  let nextIndex = 0;
+
+  async function runWorker() {
+    while (true) {
+      const current = nextIndex;
+      nextIndex += 1;
+      if (current >= items.length) return;
+      out[current] = await worker(items[current]);
+    }
   }
 
-  const user = await currentUser();
-  const role = formatRole(user?.publicMetadata?.role);
-  const primaryEmail = user?.primaryEmailAddress?.emailAddress ?? "Not set";
-  const fullName = user?.fullName || user?.username || "SecureShuttle User";
-  const accountCreated = formatDate(user?.createdAt ?? null);
-  const lastSignIn = formatDate(user?.lastSignInAt ?? null);
-  const userIdentifier = user?.id ?? "";
+  const workers = Array.from(
+    { length: Math.max(1, Math.min(concurrency, items.length)) },
+    () => runWorker()
+  );
+  await Promise.all(workers);
+  return out;
+}
+
+async function fetchAllMineEscrows(): Promise<Escrow[]> {
+  let offset = 0;
+  let total = Number.POSITIVE_INFINITY;
+  const results: Escrow[] = [];
+
+  while (offset < total) {
+    const page = await listEscrows(undefined, "mine", {
+      limit: ESCROW_PAGE_SIZE,
+      offset,
+    });
+    total = page.total;
+    if (!page.items.length) break;
+    results.push(...page.items);
+    offset += page.items.length;
+  }
+
+  const uniqueById = new Map<string, Escrow>();
+  for (const escrow of results) {
+    uniqueById.set(escrow.id, escrow);
+  }
+  return Array.from(uniqueById.values());
+}
+
+export default function ProfilePage() {
+  const router = useRouter();
+  const { isLoaded, isSignedIn, user } = useUser();
+  const [loadingDeals, setLoadingDeals] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [dealRows, setDealRows] = useState<DealHistoryRow[]>([]);
+  const [reviewAverage, setReviewAverage] = useState<number | null>(null);
+  const [reviewCount, setReviewCount] = useState(0);
+
+  const actorUserId = user?.id ?? "";
+  const displayName =
+    user?.fullName ||
+    user?.username ||
+    user?.primaryEmailAddress?.emailAddress ||
+    "User";
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      router.replace("/signin");
+      return;
+    }
+    if (!actorUserId) return;
+
+    let cancelled = false;
+    setLoadingDeals(true);
+    setLoadError(null);
+
+    async function loadHistoryAndRatings() {
+      try {
+        const allMine = await fetchAllMineEscrows();
+        const terminalDeals = allMine
+          .filter((escrow) => TERMINAL_STATUSES.has(escrow.status))
+          .sort((a, b) => dealTimestampMs(b) - dealTimestampMs(a));
+
+        const rows = await mapWithConcurrency(
+          terminalDeals,
+          RATING_FETCH_CONCURRENCY,
+          async (escrow): Promise<DealHistoryRow> => {
+            try {
+              const ratingState = await getEscrowRatingState(escrow.public_id);
+              return {
+                escrow,
+                receivedScore: ratingState.received_rating?.score ?? null,
+              };
+            } catch {
+              return { escrow, receivedScore: null };
+            }
+          }
+        );
+
+        if (cancelled) return;
+
+        const receivedScores = rows
+          .map((row) => row.receivedScore)
+          .filter((score): score is number => typeof score === "number");
+
+        const avg =
+          receivedScores.length > 0
+            ? receivedScores.reduce((sum, score) => sum + score, 0) /
+              receivedScores.length
+            : null;
+
+        setDealRows(rows);
+        setReviewCount(receivedScores.length);
+        setReviewAverage(avg);
+      } catch (err) {
+        if (cancelled) return;
+        setLoadError(
+          err instanceof Error ? err.message : "Failed to load profile history."
+        );
+      } finally {
+        if (!cancelled) {
+          setLoadingDeals(false);
+        }
+      }
+    }
+
+    void loadHistoryAndRatings();
+    return () => {
+      cancelled = true;
+    };
+  }, [actorUserId, isLoaded, isSignedIn, router]);
+
+  const reviewScoreLabel = useMemo(() => {
+    if (reviewAverage == null) return "No ratings yet";
+    return `${reviewAverage.toFixed(2)} / 5`;
+  }, [reviewAverage]);
+
+  if (!isLoaded) {
+    return (
+      <main className="min-h-screen bg-neutral-950 text-white px-6 pt-24 pb-12">
+        <div className="max-w-5xl mx-auto text-sm text-neutral-400">
+          Loading profile...
+        </div>
+      </main>
+    );
+  }
+
+  if (!isSignedIn) {
+    return (
+      <main className="min-h-screen bg-neutral-950 text-white px-6 pt-24 pb-12">
+        <div className="max-w-5xl mx-auto text-sm text-neutral-400">
+          Redirecting to sign in...
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <main className="relative min-h-screen text-white px-4 sm:px-6 py-16 sm:py-24">
-      <div
-        className="absolute inset-0 z-0"
-        style={{
-          backgroundImage: "url('/backgroundStars.webp')",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-        }}
-      />
-      <div className="relative z-10 max-w-2xl mx-auto mb-4">
+    <main className="min-h-screen bg-neutral-950 text-white px-6 pt-24 pb-12">
+      <div className="max-w-5xl mx-auto mb-4">
         <BackButton fallbackHref="/dashboard" />
       </div>
 
-      <div className="relative z-10 max-w-5xl mx-auto space-y-5">
-        <section className="rounded-2xl border border-neutral-800 bg-neutral-900/60 backdrop-blur p-6 sm:p-8 shadow-lg">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <ProfileImageUpload currentImageUrl={user?.imageUrl ?? ""} />
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-semibold">{fullName}</h1>
-                <p className="text-neutral-400 text-sm sm:text-base">{primaryEmail}</p>
-                <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-300">
-                  <span className="h-2 w-2 rounded-full bg-indigo-400" />
-                  {role}
-                </div>
-              </div>
-            </div>
+      <div className="max-w-5xl mx-auto rounded-xl border border-neutral-800 bg-neutral-900 p-8 shadow-lg">
+        <h1 className="text-3xl font-semibold mb-6">Profile</h1>
 
-            <div className="grid grid-cols-2 gap-3 text-sm min-w-[220px]">
-              <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 px-3 py-2">
-                <p className="text-neutral-400 text-xs uppercase tracking-wide">Account</p>
-                <p className="text-white font-medium">Active</p>
-              </div>
-              <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 px-3 py-2">
-                <p className="text-neutral-400 text-xs uppercase tracking-wide">2FA</p>
-                <p className="text-white font-medium">
-                  {user?.twoFactorEnabled ? "Enabled" : "Disabled"}
-                </p>
-              </div>
-            </div>
+        <div className="flex items-center gap-4 mb-8">
+          <ProfileImageUpload currentImageUrl={user?.imageUrl ?? ""} />
+          <div>
+            <p className="text-lg font-medium">{displayName}</p>
+            <p className="text-neutral-400 text-sm">
+              {user?.primaryEmailAddress?.emailAddress}
+            </p>
           </div>
-        </section>
+        </div>
 
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 backdrop-blur p-5">
-            <h2 className="text-lg font-semibold mb-4">Account Details</h2>
-            <div className="space-y-3">
-              <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 px-4 py-3">
-                <p className="text-xs text-neutral-400 uppercase tracking-wide mb-1">User ID</p>
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-mono text-sm text-neutral-200">{shortId(userIdentifier)}</p>
-                  {userIdentifier ? <CopyButton value={userIdentifier} /> : null}
-                </div>
-              </div>
+        <div className="grid sm:grid-cols-3 gap-3 mb-8">
+          <div className="rounded-lg border border-neutral-800 bg-neutral-950 p-4">
+            <p className="text-xs uppercase tracking-wide text-neutral-500">
+              Completed Deals
+            </p>
+            <p className="text-2xl font-semibold mt-1">{dealRows.length}</p>
+          </div>
+          <div className="rounded-lg border border-neutral-800 bg-neutral-950 p-4">
+            <p className="text-xs uppercase tracking-wide text-neutral-500">
+              Review Score
+            </p>
+            <p className="text-2xl font-semibold mt-1">{reviewScoreLabel}</p>
+          </div>
+          <div className="rounded-lg border border-neutral-800 bg-neutral-950 p-4">
+            <p className="text-xs uppercase tracking-wide text-neutral-500">
+              Ratings Received
+            </p>
+            <p className="text-2xl font-semibold mt-1">{reviewCount}</p>
+          </div>
+        </div>
 
-              <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 px-4 py-3">
-                <p className="text-xs text-neutral-400 uppercase tracking-wide mb-1">Email</p>
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm text-neutral-200 break-all">{primaryEmail}</p>
-                  {primaryEmail !== "Not set" ? <CopyButton value={primaryEmail} /> : null}
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 px-4 py-3">
-                <p className="text-xs text-neutral-400 uppercase tracking-wide mb-1">Username</p>
-                <p className="text-sm text-neutral-200">{user?.username ?? "Not set"}</p>
-              </div>
-            </div>
+        <section className="rounded-lg border border-neutral-800 bg-neutral-950">
+          <div className="px-4 py-3 border-b border-neutral-800">
+            <h2 className="text-lg font-semibold">Past Deals</h2>
+            <p className="text-sm text-neutral-400 mt-1">
+              Date, amount, your role, and final outcome.
+            </p>
           </div>
 
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 backdrop-blur p-5">
-            <h2 className="text-lg font-semibold mb-4">Activity & Security</h2>
-            <div className="space-y-3">
-              <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 px-4 py-3">
-                <p className="text-xs text-neutral-400 uppercase tracking-wide mb-1">Account created</p>
-                <p className="text-sm text-neutral-200">{accountCreated}</p>
-              </div>
-
-              <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 px-4 py-3">
-                <p className="text-xs text-neutral-400 uppercase tracking-wide mb-1">Last sign-in</p>
-                <p className="text-sm text-neutral-200">{lastSignIn}</p>
-              </div>
-
-              <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 px-4 py-3">
-                <p className="text-xs text-neutral-400 uppercase tracking-wide mb-1">Email verification</p>
-                <p className="text-sm text-neutral-200">
-                  {user?.primaryEmailAddress?.verification?.status === "verified"
-                    ? "Verified"
-                    : "Unverified"}
-                </p>
-              </div>
+          {loadError ? (
+            <div className="m-4 rounded-lg border border-red-800/30 bg-red-950/30 p-3">
+              <p className="text-sm text-red-300">{loadError}</p>
             </div>
-          </div>
-        </section>
+          ) : null}
 
-        <section className="rounded-2xl border border-neutral-800 bg-neutral-900/60 backdrop-blur p-5">
-          <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Link
-              href="/dashboard"
-              className="rounded-xl border border-neutral-700 bg-neutral-900/60 px-4 py-3 text-sm font-medium text-neutral-200 hover:text-white hover:border-indigo-500/50 hover:bg-indigo-500/10 transition-colors"
-            >
-              Go to Dashboard
-            </Link>
-            <Link
-              href="/escrows"
-              className="rounded-xl border border-neutral-700 bg-neutral-900/60 px-4 py-3 text-sm font-medium text-neutral-200 hover:text-white hover:border-indigo-500/50 hover:bg-indigo-500/10 transition-colors"
-            >
-              View Escrows
-            </Link>
-            <Link
-              href="/newEscrow"
-              className="rounded-xl border border-neutral-700 bg-neutral-900/60 px-4 py-3 text-sm font-medium text-neutral-200 hover:text-white hover:border-indigo-500/50 hover:bg-indigo-500/10 transition-colors"
-            >
-              Create Escrow
-            </Link>
-          </div>
+          {loadingDeals ? (
+            <div className="px-4 py-6 text-sm text-neutral-400">
+              Loading deal history...
+            </div>
+          ) : dealRows.length === 0 ? (
+            <div className="px-4 py-6 text-sm text-neutral-400">
+              No completed deals yet.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="text-left text-neutral-400">
+                  <tr className="border-b border-neutral-800">
+                    <th className="px-4 py-3 font-medium">Date</th>
+                    <th className="px-4 py-3 font-medium">Amount</th>
+                    <th className="px-4 py-3 font-medium">Role</th>
+                    <th className="px-4 py-3 font-medium">Outcome</th>
+                    <th className="px-4 py-3 font-medium">Escrow</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dealRows.map((row) => (
+                    <tr
+                      key={row.escrow.id}
+                      className="border-b border-neutral-800/70 last:border-b-0"
+                    >
+                      <td className="px-4 py-3 text-neutral-200">
+                        {formatDate(row.escrow.updated_at)}
+                      </td>
+                      <td className="px-4 py-3 text-neutral-200 font-mono">
+                        {formatSol(row.escrow.expected_amount_lamports)}
+                      </td>
+                      <td className="px-4 py-3 text-neutral-200">
+                        {roleForDeal(row.escrow, actorUserId)}
+                      </td>
+                      <td className="px-4 py-3 text-neutral-200">
+                        {outcomeForDeal(row.escrow)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/escrow/${encodeURIComponent(
+                            row.escrow.public_id
+                          )}`}
+                          className="text-[#62a5ff] hover:text-[#8fc1ff]"
+                        >
+                          {row.escrow.public_id}
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
       </div>
     </main>
