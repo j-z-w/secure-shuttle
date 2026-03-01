@@ -6,6 +6,8 @@ import { listEscrows } from "@/app/lib/api";
 import type { Escrow } from "@/app/lib/types";
 import EscrowStatusBadge from "@/app/components/EscrowStatusBadge";
 
+const ESCROW_PAGE_SIZE = 200;
+
 const ACTIVE_STATUSES = new Set([
   "open",
   "roles_pending",
@@ -99,7 +101,10 @@ export default function Dashboard() {
       setLoading(true);
       setError(null);
       try {
-        const res = await listEscrows(undefined, isAdmin ? "all" : "mine");
+        const preferredScope: "all" | "mine" = isAdmin ? "all" : "mine";
+        const res = await listEscrows(undefined, preferredScope, {
+          limit: ESCROW_PAGE_SIZE,
+        });
         if (!active) return;
         const sorted = [...res.items].sort(
           (a, b) =>

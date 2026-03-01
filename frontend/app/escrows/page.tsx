@@ -10,6 +10,7 @@ import EscrowCard from "@/app/components/EscrowCard";
 import BackButton from "@/app/components/BackButton";
 
 const AUTO_REFRESH_MS = 5000;
+const ESCROW_PAGE_SIZE = 200;
 
 const TABS: { label: string; value: EscrowStatus | "all" }[] = [
   { label: "All", value: "all" },
@@ -25,7 +26,7 @@ const TABS: { label: string; value: EscrowStatus | "all" }[] = [
 
 export default function EscrowsPage() {
   const searchParams = useSearchParams();
-  const { isLoaded, isSignedIn, user } = useUser();
+  const { isLoaded, isSignedIn } = useUser();
   const statusParam = searchParams.get("status");
   const scopeParam = searchParams.get("scope");
   const initialTab =
@@ -33,17 +34,15 @@ export default function EscrowsPage() {
       ? (statusParam as EscrowStatus)
       : "all";
   const requestedScope = scopeParam === "all" ? "all" : "mine";
-  const userRole =
-    typeof user?.publicMetadata?.role === "string"
-      ? user.publicMetadata.role.toLowerCase()
-      : "";
-  const isAdmin = userRole === "admin";
-  const scope = requestedScope === "all" && isAdmin ? "all" : "mine";
 
   const [escrows, setEscrows] = useState<Escrow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<EscrowStatus | "all">(initialTab);
+  const [effectiveScope, setEffectiveScope] = useState<"mine" | "all">(
+    requestedScope,
+  );
+  const [scopeNotice, setScopeNotice] = useState<string | null>(null);
   const unauthenticated = isLoaded && !isSignedIn;
   const refreshInFlightRef = useRef(false);
 
@@ -59,7 +58,9 @@ export default function EscrowsPage() {
 
       const status = activeTab === "all" ? undefined : activeTab;
       try {
-        const res = await listEscrows(status, scope);
+        const res = await listEscrows(status, requestedScope, {
+          limit: ESCROW_PAGE_SIZE,
+        });
         const sorted = [...res.items].sort(
           (a, b) =>
             new Date(b.updated_at ?? b.created_at).getTime() -
@@ -67,7 +68,28 @@ export default function EscrowsPage() {
         );
         setEscrows(sorted);
         setTotal(res.total);
+        setEffectiveScope(requestedScope);
+        setScopeNotice(null);
       } catch {
+        try {
+          if (requestedScope === "all") {
+            const fallback = await listEscrows(status, "mine", {
+              limit: ESCROW_PAGE_SIZE,
+            });
+            const sorted = [...fallback.items].sort(
+              (a, b) =>
+                new Date(b.updated_at ?? b.created_at).getTime() -
+                new Date(a.updated_at ?? a.created_at).getTime()
+            );
+            setEscrows(sorted);
+            setTotal(fallback.total);
+            setEffectiveScope("mine");
+            setScopeNotice("Admin permissions required for all-escrow scope.");
+            return;
+          }
+        } catch {
+          // Fall through to generic empty/error state below.
+        }
         if (!silent) {
           setEscrows([]);
           setTotal(0);
@@ -79,7 +101,7 @@ export default function EscrowsPage() {
         }
       }
     },
-    [activeTab, isLoaded, isSignedIn, scope]
+    [activeTab, isLoaded, isSignedIn, requestedScope]
   );
 
   useEffect(() => {
@@ -139,11 +161,11 @@ export default function EscrowsPage() {
               Auto-refresh every {Math.round(AUTO_REFRESH_MS / 1000)}s
             </p>
             <p className="text-xs text-neutral-600 mt-1">
-              Scope: {scope === "all" ? "All escrows" : "My escrows"}
+              Scope: {effectiveScope === "all" ? "All escrows" : "My escrows"}
             </p>
-            {requestedScope === "all" && !isAdmin ? (
+            {scopeNotice ? (
               <p className="text-xs text-amber-400 mt-1">
-                Admin permissions required for all-escrow scope.
+                {scopeNotice}
               </p>
             ) : null}
           </div>
