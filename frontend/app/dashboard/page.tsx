@@ -68,6 +68,7 @@ export default function Dashboard() {
   const [escrows, setEscrows] = useState<Escrow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hoveredHistoryIndex, setHoveredHistoryIndex] = useState<number | null>(null);
 
   useEffect(() => {
     function handleResize() {
@@ -279,6 +280,17 @@ export default function Dashboard() {
       })
       .join(" ");
   }, [historySeries]);
+
+  const hoveredHistoryPoint = useMemo(() => {
+    if (hoveredHistoryIndex === null) return null;
+    return historySeries.points[hoveredHistoryIndex] ?? null;
+  }, [historySeries.points, hoveredHistoryIndex]);
+
+  const hoveredHistoryLeftPercent = useMemo(() => {
+    if (hoveredHistoryIndex === null) return 0;
+    if (historySeries.points.length <= 1) return 50;
+    return (hoveredHistoryIndex / (historySeries.points.length - 1)) * 100;
+  }, [historySeries.points.length, hoveredHistoryIndex]);
 
   const topCounterpartyMax = useMemo(() => {
     if (participantStats.top.length === 0) return 1;
@@ -544,11 +556,31 @@ export default function Dashboard() {
                   No chart data yet
                 </div>
               ) : (
-                <div className="h-full flex flex-col justify-between">
-                  <div className="relative h-[112px] rounded-md bg-neutral-950/60 border border-neutral-800 px-2 pt-2 pb-1 overflow-hidden">
+                <div className="relative h-full flex flex-col justify-between">
+                  {hoveredHistoryPoint ? (
+                    <div className="pointer-events-none absolute left-0 right-0 -top-0.5 z-20">
+                      <div
+                        className="absolute -translate-x-1/2 -translate-y-full rounded-md border border-neutral-700 bg-neutral-900/95 px-2 py-1 text-[11px] leading-4 text-neutral-200 shadow-lg whitespace-nowrap"
+                        style={{ left: `${hoveredHistoryLeftPercent}%` }}
+                      >
+                        <div className="font-medium text-white">{hoveredHistoryPoint.label}</div>
+                        <div>{hoveredHistoryPoint.count} escrows</div>
+                        <div>{hoveredHistoryPoint.volume.toFixed(3)} SOL</div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div
+                    className="relative h-[112px] rounded-md bg-neutral-950/60 border border-neutral-800 px-2 pt-2 pb-1 overflow-hidden"
+                    onMouseLeave={() => setHoveredHistoryIndex(null)}
+                  >
                     <div className="absolute inset-x-2 bottom-1 h-[96px] flex items-end gap-1">
-                      {historySeries.points.map((point) => (
-                        <div key={point.key} className="flex-1 flex items-end">
+                      {historySeries.points.map((point, index) => (
+                        <div
+                          key={point.key}
+                          className="flex-1 flex items-end"
+                          onMouseEnter={() => setHoveredHistoryIndex(index)}
+                        >
                           <div
                             className="w-full bg-indigo-500/40 rounded-sm"
                             style={{
