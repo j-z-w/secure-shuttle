@@ -103,9 +103,13 @@ export async function getEscrowByPublicId(publicId: string): Promise<Escrow> {
 }
 
 export async function listEscrows(
-  status?: EscrowStatus
+  status?: EscrowStatus,
+  scope: "mine" | "all" = "mine"
 ): Promise<EscrowListResponse> {
-  const params = status ? `?status=${status}` : "";
+  const query = new URLSearchParams();
+  if (status) query.set("status", status);
+  query.set("scope", scope);
+  const params = query.toString() ? `?${query.toString()}` : "";
   return request<EscrowListResponse>(`/api/v1/escrows/${params}`);
 }
 

@@ -57,7 +57,7 @@ export default function Dashboard() {
       setLoading(true);
       setError(null);
       try {
-        const res = await listEscrows();
+        const res = await listEscrows(undefined, "all");
         if (!active) return;
         const sorted = [...res.items].sort(
           (a, b) =>

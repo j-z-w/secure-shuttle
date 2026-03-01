@@ -36,16 +36,18 @@ def create_escrow(data: EscrowCreate, actor_user_id: str = Depends(get_actor_use
 @router.get("/", response_model=EscrowListOut)
 def list_escrows(
     status: Optional[str] = Query(None),
+    scope: str = Query("mine", pattern="^(mine|all)$"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     actor_user_id: str = Depends(get_actor_user_id),
 ):
+    mine_only = scope != "all"
     total, items = escrow_service.list_escrows(
         status,
         limit,
         offset,
         actor_user_id,
-        True,
+        mine_only,
     )
     return EscrowListOut(total=total, items=items)
 
