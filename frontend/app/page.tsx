@@ -155,17 +155,14 @@ export default function Home() {
       {/* ─── FEATURES SECTION ─── */}
       <section
         id="features"
-        className="relative min-h-screen w-full"
+        className="relative w-full"
         style={{
           backgroundImage: "url('/backgroundLower.webp')",
           backgroundSize: "cover",
           backgroundPosition: "center",
-
         }}
       >
-        <div className="absolute inset-0 overflow-y-auto">
-          <ZigZag />
-        </div>
+        <ZigZag />
       </section>
     </main>
   );

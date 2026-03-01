@@ -60,8 +60,17 @@ export default function EscrowsPage() {
   }, [activeTab, isLoaded, isSignedIn, scope]);
 
   return (
-    <div className="min-h-screen bg-[#1d1d1d] text-white">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+    <div className="relative min-h-screen text-white">
+      <div
+        className="fixed inset-0 z-0"
+        style={{
+          backgroundImage: "url('/backgroundStars.webp')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      />
+      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
         <div className="mb-6">
           <BackButton fallbackHref="/dashboard" />
         </div>
@@ -86,7 +95,7 @@ export default function EscrowsPage() {
           </div>
           <Link
             href="/pay"
-            className="bg-[#0070f3] hover:bg-[#005bc4] transition-colors px-5 py-2.5 rounded-lg text-sm font-medium"
+            className="bg-indigo-600 hover:bg-indigo-500 transition-colors px-5 py-2.5 rounded-lg text-sm font-medium"
           >
             + New Payment
           </Link>
@@ -103,7 +112,7 @@ export default function EscrowsPage() {
               }}
               className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
                 activeTab === tab.value
-                  ? "text-white border-b-2 border-[#0070f3]"
+                  ? "text-white border-b-2 border-indigo-500"
                   : "text-neutral-500 hover:text-neutral-300"
               }`}
             >
@@ -145,7 +154,7 @@ export default function EscrowsPage() {
             <p className="text-neutral-500 mb-4">No escrows found</p>
             <Link
               href="/pay"
-              className="text-[#0070f3] hover:text-[#339af0] text-sm"
+              className="text-indigo-400 hover:text-indigo-300 text-sm"
             >
               Create your first payment
             </Link>

@@ -21,7 +21,7 @@ export default function EscrowCard({ escrow }: { escrow: Escrow }) {
   return (
     <Link
       href={`/escrow/${escrow.public_id}`}
-      className="block bg-neutral-900 rounded-xl p-6 border border-neutral-800 hover:border-neutral-700 transition-colors"
+      className="block bg-neutral-900/60 backdrop-blur rounded-2xl p-6 border border-neutral-800 hover:border-neutral-600 transition-colors"
     >
       <div className="flex items-start justify-between gap-3 mb-3">
         <h3 className="text-lg font-semibold truncate">

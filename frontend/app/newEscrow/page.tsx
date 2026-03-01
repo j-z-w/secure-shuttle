@@ -111,7 +111,7 @@ export default function NewEscrowPage() {
                 type="text"
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
-                placeholder="e.g. Vancouver → Whistler shuttle"
+                placeholder="e.g. Online purchase"
                 className="w-full bg-neutral-800/70 border border-neutral-700 rounded-lg px-4 py-3 text-white placeholder-neutral-500 outline-none transition-colors focus:border-indigo-500"
               />
             </div>

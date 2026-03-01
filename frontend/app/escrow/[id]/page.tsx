@@ -80,8 +80,17 @@ export default function EscrowRouteHubPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#1d1d1d] text-white flex items-center justify-center px-4">
-      <div className="w-full max-w-xl bg-neutral-900 border border-neutral-800 rounded-xl p-6">
+    <div className="relative min-h-screen text-white flex items-center justify-center px-4">
+      <div
+        className="fixed inset-0 z-0"
+        style={{
+          backgroundImage: "url('/backgroundStars.webp')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      />
+      <div className="relative z-10 w-full max-w-xl bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-2xl p-6">
         <h1 className="text-2xl font-bold">Escrow Route Hub</h1>
         <p className="text-sm text-neutral-400 mt-2">
           Public ID: <span className="font-mono text-neutral-200">{publicId}</span>
@@ -93,19 +102,19 @@ export default function EscrowRouteHubPage() {
         <div className="mt-5 grid gap-2">
           <Link
             href={claimHref}
-            className="w-full text-center bg-[#0070f3] hover:bg-[#005bc4] rounded-lg px-3 py-2 text-sm"
+            className="w-full text-center bg-indigo-600 hover:bg-indigo-500 rounded-lg px-3 py-2 text-sm transition-colors"
           >
             Open Shared Claim Page
           </Link>
           <Link
             href={senderHref}
-            className="w-full text-center bg-neutral-800 hover:bg-neutral-700 rounded-lg px-3 py-2 text-sm"
+            className="w-full text-center bg-neutral-800/70 hover:bg-neutral-700 rounded-lg px-3 py-2 text-sm transition-colors"
           >
             Open Sender Workspace
           </Link>
           <Link
             href={recipientHref}
-            className="w-full text-center bg-neutral-800 hover:bg-neutral-700 rounded-lg px-3 py-2 text-sm"
+            className="w-full text-center bg-neutral-800/70 hover:bg-neutral-700 rounded-lg px-3 py-2 text-sm transition-colors"
           >
             Open Recipient Workspace
           </Link>
@@ -129,7 +138,7 @@ export default function EscrowRouteHubPage() {
           ) : null}
 
           <div className="mt-4 grid gap-2 text-sm">
-            <label className="flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2">
+            <label className="flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800/70 px-3 py-2">
               <input
                 type="radio"
                 name="cancel-behavior"
@@ -138,7 +147,7 @@ export default function EscrowRouteHubPage() {
               />
               <span>Cancel only (no payout)</span>
             </label>
-            <label className="flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2">
+            <label className="flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800/70 px-3 py-2">
               <input
                 type="radio"
                 name="cancel-behavior"
@@ -147,7 +156,7 @@ export default function EscrowRouteHubPage() {
               />
               <span>Return to sender</span>
             </label>
-            <label className="flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2">
+            <label className="flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800/70 px-3 py-2">
               <input
                 type="radio"
                 name="cancel-behavior"

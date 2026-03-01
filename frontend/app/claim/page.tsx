@@ -194,9 +194,18 @@ export default function ClaimRolePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#1d1d1d] text-white">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-        <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800 mb-4">
+    <div className="relative min-h-screen text-white">
+      <div
+        className="fixed inset-0 z-0"
+        style={{
+          backgroundImage: "url('/backgroundStars.webp')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      />
+      <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+        <div className="bg-neutral-900/60 backdrop-blur rounded-2xl p-6 border border-neutral-800 mb-4">
           <h1 className="text-2xl font-bold tracking-tight">Claim Role</h1>
           <p className="text-sm text-neutral-400 mt-1">
             Both users open this same link, then claim sender or recipient. Claimed roles lock.
@@ -229,9 +238,9 @@ export default function ClaimRolePage() {
           </div>
         )}
 
-        <section className="bg-neutral-900 rounded-xl p-5 border border-neutral-800 mb-4">
+        <section className="bg-neutral-900/60 backdrop-blur rounded-2xl p-5 border border-neutral-800 mb-4">
           <h2 className="text-lg font-semibold mb-3">Shared Link</h2>
-          <div className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2">
+          <div className="flex items-center gap-2 bg-neutral-800/70 border border-neutral-700 rounded-lg px-3 py-2">
             <span className="text-xs text-neutral-200 font-mono truncate flex-1">
               {sharedClaimLink || "Link unavailable"}
             </span>
@@ -239,9 +248,9 @@ export default function ClaimRolePage() {
           </div>
         </section>
 
-        <section className="bg-neutral-900 rounded-xl p-5 border border-neutral-800 mb-4">
+        <section className="bg-neutral-900/60 backdrop-blur rounded-2xl p-5 border border-neutral-800 mb-4">
           <h2 className="text-lg font-semibold mb-3">Your Account</h2>
-          <div className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2">
+          <div className="flex items-center gap-2 bg-neutral-800/70 border border-neutral-700 rounded-lg px-3 py-2">
             <span className="text-sm text-neutral-200 truncate flex-1">
               {actorUserId ? actorDisplayName : isLoaded ? "Not signed in" : "Loading..."}
             </span>
@@ -277,8 +286,8 @@ export default function ClaimRolePage() {
 
         <div className="grid sm:grid-cols-2 gap-4">
           <section
-            className={`rounded-xl p-5 border ${
-              senderLocked ? "bg-neutral-950 border-neutral-800 opacity-50" : "bg-neutral-900 border-neutral-800"
+            className={`rounded-2xl p-5 border backdrop-blur ${
+              senderLocked ? "bg-neutral-950/40 border-neutral-800 opacity-50" : "bg-neutral-900/60 border-neutral-800"
             }`}
           >
             <h3 className="text-lg font-semibold">Sender</h3>
@@ -303,7 +312,7 @@ export default function ClaimRolePage() {
             <button
               onClick={() => handleClaim("sender")}
               disabled={senderDisabled}
-              className="mt-4 w-full px-3 py-2 rounded-lg text-sm bg-[#0070f3] hover:bg-[#005bc4] disabled:opacity-50"
+              className="mt-4 w-full px-3 py-2 rounded-lg text-sm bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 disabled:opacity-50 transition-colors"
             >
               {actorIsSender
                 ? "Continue As Sender"
@@ -316,8 +325,8 @@ export default function ClaimRolePage() {
           </section>
 
           <section
-            className={`rounded-xl p-5 border ${
-              recipientLocked ? "bg-neutral-950 border-neutral-800 opacity-50" : "bg-neutral-900 border-neutral-800"
+            className={`rounded-2xl p-5 border backdrop-blur ${
+              recipientLocked ? "bg-neutral-950/40 border-neutral-800 opacity-50" : "bg-neutral-900/60 border-neutral-800"
             }`}
           >
             <h3 className="text-lg font-semibold">Recipient</h3>
@@ -346,7 +355,7 @@ export default function ClaimRolePage() {
             <button
               onClick={() => handleClaim("recipient")}
               disabled={recipientDisabled}
-              className="mt-4 w-full px-3 py-2 rounded-lg text-sm bg-[#0a8458] hover:bg-[#076e49] disabled:opacity-50"
+              className="mt-4 w-full px-3 py-2 rounded-lg text-sm bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 disabled:opacity-50 transition-colors"
             >
               {actorIsRecipient
                 ? "Continue As Recipient"

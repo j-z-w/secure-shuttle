@@ -18,7 +18,7 @@ export default function TransactionStatusWheel({
   steps: StatusStep[];
 }) {
   return (
-    <section className="bg-neutral-900 rounded-xl p-5 border border-neutral-800">
+    <section className="bg-neutral-900/60 backdrop-blur rounded-2xl p-5 border border-neutral-800">
       <h2 className="text-lg font-semibold mb-2">{title}</h2>
       <p className="text-sm text-neutral-400 mb-4">
         {summaryLabel}: <span className="text-neutral-200">{summaryValue}</span>
@@ -31,7 +31,7 @@ export default function TransactionStatusWheel({
                 step.state === "done"
                   ? "bg-emerald-700"
                   : step.state === "current"
-                  ? "bg-blue-700"
+                  ? "bg-indigo-700"
                   : step.state === "error"
                   ? "bg-red-700"
                   : "bg-neutral-700"
@@ -56,7 +56,7 @@ export default function TransactionStatusWheel({
                   step.state === "done"
                     ? "text-white"
                     : step.state === "current"
-                    ? "text-blue-200"
+                    ? "text-indigo-200"
                     : step.state === "error"
                     ? "text-red-200"
                     : "text-neutral-500"
