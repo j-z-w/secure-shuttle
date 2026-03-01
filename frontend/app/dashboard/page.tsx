@@ -225,28 +225,16 @@ export default function Dashboard() {
             {sidebarOpen && "New Escrow"}
           </Link>
           <Link
-            href="/escrows?status=funded"
+            href="/escrows?scope=all"
             className={`flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-700 ${!sidebarOpen && "justify-center"}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/icons-escrow.webp"
-              alt="Active Escrows"
+              alt="Escrows"
               className="w-4 h-4 shrink-0 object-contain"
             />
-            {sidebarOpen && "Active Escrows"}
-          </Link>
-          <Link
-            href="/escrows?status=released"
-            className={`flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-700 ${!sidebarOpen && "justify-center"}`}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/icons-escrow.webp"
-              alt="Escrow History"
-              className="w-4 h-4 shrink-0 object-contain"
-            />
-            {sidebarOpen && "Escrow History"}
+            {sidebarOpen && "Escrows"}
           </Link>
 
           {sidebarOpen && (

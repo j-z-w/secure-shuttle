@@ -154,12 +154,12 @@ export async function releaseFundsByPublicId(
 
 export async function cancelEscrow(
   id: string,
-  returnFunds = false,
-  refundAddress?: string
+  settlement: "none" | "refund_sender" | "pay_recipient" = "none",
+  payoutAddress?: string
 ): Promise<CancelResponse> {
   const params = new URLSearchParams();
-  if (returnFunds) params.set("return_funds", "true");
-  if (refundAddress) params.set("refund_address", refundAddress);
+  params.set("settlement", settlement);
+  if (payoutAddress) params.set("payout_address", payoutAddress);
   const query = params.toString() ? `?${params}` : "";
   return request<CancelResponse>(`/api/v1/escrows/${id}${query}`, {
     method: "DELETE",

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import {
+  cancelEscrow,
   checkTransactionStatus,
   getBalance,
   getEscrowByPublicId,
@@ -74,10 +75,14 @@ export default function SenderEscrowPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [lastScanAt, setLastScanAt] = useState<string | null>(null);
 
   const [joinToken, setJoinToken] = useState("");
   const [disputeReason, setDisputeReason] = useState("");
+  const [cancelBehavior, setCancelBehavior] = useState<
+    "cancel_only" | "refund_sender" | "pay_recipient"
+  >("cancel_only");
 
   const scanInFlightRef = useRef(false);
 
@@ -154,11 +159,11 @@ export default function SenderEscrowPage() {
       scanInFlightRef.current = true;
       if (manual) setScanLoading(true);
       try {
-        const data = await fetchEscrowCore();
-        setEscrow(data);
-        await fetchBalanceAndTransactions(data.id);
-        setLastScanAt(new Date().toISOString());
-        if (manual) setActionError(null);
+      const data = await fetchEscrowCore();
+      setEscrow(data);
+      await fetchBalanceAndTransactions(data.id);
+      setLastScanAt(new Date().toISOString());
+      if (manual) setActionError(null);
       } catch (err) {
         if (manual) setActionError(err instanceof Error ? err.message : "Chain scan failed");
       } finally {
@@ -192,6 +197,7 @@ export default function SenderEscrowPage() {
   const withAction = useCallback(async (name: string, fn: () => Promise<void>) => {
     setActionLoading(name);
     setActionError(null);
+    setActionNotice(null);
     try {
       await fn();
     } catch (err) {
@@ -319,6 +325,7 @@ export default function SenderEscrowPage() {
     }
     await withAction("release", async () => {
       await releaseFundsByPublicId(publicId);
+      setActionNotice("Release submitted.");
       void scanChain(false);
     });
   }
@@ -336,6 +343,38 @@ export default function SenderEscrowPage() {
         reason: disputeReason.trim() || undefined,
       });
       setEscrow(data);
+      setActionNotice("Dispute opened.");
+      void scanChain(false);
+    });
+  }
+
+  async function handleCancelEscrow() {
+    if (!actorUserId) {
+      setActionError("You must be signed in to cancel.");
+      return;
+    }
+    if (!escrow?.id) {
+      setActionError("Escrow ID is missing.");
+      return;
+    }
+    await withAction("cancel", async () => {
+      let settlement: "none" | "refund_sender" | "pay_recipient" = "none";
+      if (cancelBehavior === "refund_sender") settlement = "refund_sender";
+      if (cancelBehavior === "pay_recipient") settlement = "pay_recipient";
+
+      const result = await cancelEscrow(escrow.id, settlement);
+      setEscrow(result.escrow);
+      if (settlement === "pay_recipient" && result.refund_signature) {
+        setActionNotice(`Escrow terminated and paid to recipient: ${shortSig(result.refund_signature)}`);
+      } else if (settlement === "refund_sender" && result.refund_signature) {
+        setActionNotice(`Escrow cancelled and refunded to sender: ${shortSig(result.refund_signature)}`);
+      } else {
+        setActionNotice(
+          settlement === "pay_recipient"
+            ? "Escrow terminated."
+            : "Escrow cancelled."
+        );
+      }
       void scanChain(false);
     });
   }
@@ -356,6 +395,12 @@ export default function SenderEscrowPage() {
         {(error || actionError) && (
           <div className="bg-red-950/40 border border-red-800/30 rounded-lg p-4 mb-4">
             <p className="text-sm text-red-300">{actionError ?? error}</p>
+          </div>
+        )}
+
+        {actionNotice && (
+          <div className="bg-emerald-950/30 border border-emerald-800/30 rounded-lg p-4 mb-4">
+            <p className="text-sm text-emerald-300">{actionNotice}</p>
           </div>
         )}
 
@@ -524,6 +569,44 @@ export default function SenderEscrowPage() {
               className="mt-2 w-full rounded-lg px-3 py-2 text-sm disabled:opacity-50 bg-red-900 hover:bg-red-800"
             >
               {actionLoading === "dispute" ? "Submitting..." : "Open Dispute"}
+            </button>
+
+            <h3 className="text-sm font-semibold mt-5 mb-2">Cancel Escrow</h3>
+            <div className="grid gap-2 text-sm">
+              <label className="flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2">
+                <input
+                  type="radio"
+                  name="cancel-behavior"
+                  checked={cancelBehavior === "cancel_only"}
+                  onChange={() => setCancelBehavior("cancel_only")}
+                />
+                <span>Cancel only (do not send refund)</span>
+              </label>
+              <label className="flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2">
+                <input
+                  type="radio"
+                  name="cancel-behavior"
+                  checked={cancelBehavior === "refund_sender"}
+                  onChange={() => setCancelBehavior("refund_sender")}
+                />
+                <span>Return to sender</span>
+              </label>
+              <label className="flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2">
+                <input
+                  type="radio"
+                  name="cancel-behavior"
+                  checked={cancelBehavior === "pay_recipient"}
+                  onChange={() => setCancelBehavior("pay_recipient")}
+                />
+                <span>Terminate and send to recipient</span>
+              </label>
+            </div>
+            <button
+              onClick={handleCancelEscrow}
+              disabled={actionLoading !== null}
+              className="mt-2 w-full rounded-lg px-3 py-2 text-sm disabled:opacity-50 bg-amber-700 hover:bg-amber-600"
+            >
+              {actionLoading === "cancel" ? "Cancelling..." : "Cancel Escrow"}
             </button>
           </section>
         </div>

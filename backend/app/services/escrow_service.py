@@ -330,6 +330,8 @@ def cancel_escrow(
     actor_user_id: str,
     return_funds: bool = False,
     refund_address: Optional[str] = None,
+    settlement: str = "none",
+    payout_address: Optional[str] = None,
 ) -> tuple[dict, Optional[str]]:
     escrow = get_escrow(escrow_id)
     _require_sender_or_creator(escrow, actor_user_id)
@@ -339,26 +341,56 @@ def cancel_escrow(
     if escrow["status"] == "released":
         raise InvalidEscrowStateError("Released escrow cannot be cancelled.")
 
-    refund_sig = None
-    if return_funds:
-        if not refund_address:
-            raise InvalidAddressError("refund_address is required when return_funds=true")
+    # Backward compatibility with existing query params.
+    if return_funds and settlement == "none":
+        settlement = "refund_sender"
+    if refund_address and not payout_address:
+        payout_address = refund_address
 
+    if settlement not in {"none", "refund_sender", "pay_recipient"}:
+        raise InvalidEscrowStateError("Invalid settlement mode.")
+
+    target_address: Optional[str] = None
+    tx_type = "refund"
+    pending_status = "refund_pending"
+    final_status = "cancelled"
+    intent_prefix = "refund"
+
+    if settlement == "refund_sender":
+        target_address = payout_address or escrow.get("sender_address")
+        tx_type = "refund"
+        pending_status = "refund_pending"
+        final_status = "cancelled"
+        intent_prefix = "refund"
+        if not target_address:
+            raise InvalidAddressError("Sender address is not set for refund.")
+    elif settlement == "pay_recipient":
+        target_address = payout_address or escrow.get("recipient_address")
+        tx_type = "release"
+        pending_status = "release_pending"
+        final_status = "released"
+        intent_prefix = "release"
+        if not target_address:
+            raise InvalidAddressError("Recipient payout address is not set.")
+
+    refund_sig = None
+    if target_address:
+        solana_service.validate_address(target_address)
         balance = solana_service.get_balance(escrow["public_key"])
         fee = solana_service.TRANSFER_FEE_LAMPORTS
         if balance > fee:
             refund_amount = balance - fee
             intent_hash = _build_intent_hash(
                 escrow_id=escrow["id"],
-                recipient=refund_address,
+                recipient=target_address,
                 amount_lamports=refund_amount,
-                idempotency_key=f"refund:{escrow['finalize_nonce'] + 1}",
+                idempotency_key=f"{intent_prefix}:{escrow['finalize_nonce'] + 1}",
             )
 
             store.update_escrow(
                 escrow_id,
                 {
-                    "status": "refund_pending",
+                    "status": pending_status,
                     "last_intent_hash": intent_hash,
                     "failure_reason": None,
                 },
@@ -367,7 +399,7 @@ def cancel_escrow(
             try:
                 transfer_result = solana_service.send_transfer_with_confirmation(
                     escrow["secret_key"],
-                    refund_address,
+                    target_address,
                     refund_amount,
                 )
             except Exception as exc:
@@ -385,10 +417,10 @@ def cancel_escrow(
                 TransactionCreate(
                     escrow_id=escrow["id"],
                     signature=refund_sig,
-                    tx_type="refund",
+                    tx_type=tx_type,
                     amount_lamports=refund_amount,
                     from_address=escrow["public_key"],
-                    to_address=refund_address,
+                    to_address=target_address,
                     status=transfer_result["status"],
                     intent_hash=intent_hash,
                     commitment_target=transfer_result["commitment_target"],
@@ -407,7 +439,7 @@ def cancel_escrow(
     result = store.update_escrow(
         escrow_id,
         {
-            "status": "cancelled",
+            "status": final_status if (refund_sig or settlement == "none") else "cancelled",
             "failure_reason": None,
         },
     )

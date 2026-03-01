@@ -79,6 +79,8 @@ def cancel_escrow(
     escrow_id: str,
     return_funds: bool = Query(False),
     refund_address: Optional[str] = Query(None),
+    settlement: str = Query("none", pattern="^(none|refund_sender|pay_recipient)$"),
+    payout_address: Optional[str] = Query(None),
     actor_user_id: str = Depends(get_actor_user_id),
 ):
     escrow, refund_sig = escrow_service.cancel_escrow(
@@ -86,6 +88,8 @@ def cancel_escrow(
         actor_user_id,
         return_funds,
         refund_address,
+        settlement,
+        payout_address,
     )
     return CancelOut(cancelled=True, refund_signature=refund_sig, escrow=escrow)
 
