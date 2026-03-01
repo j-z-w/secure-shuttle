@@ -130,8 +130,7 @@ export default function Home() {
               textShadow: "0 2px 8px rgba(0,0,0,0.4)",
             }}
           >
-            Description description description description description
-            description description
+            SecureShuttle is the safer way to handle peer-to-peer transactions. Sending money to a stranger and hoping for the best is a gamble no one should have to take, so SecureShuttle holds payments in escrow on the Solana blockchain until both parties confirm everything went as agreed. Fast, transparent, and fully protected, it ensures that buyers get what they paid for and sellers get paid for what they deliver.
           </p>
         </div>
       </div>
