@@ -11,7 +11,6 @@ type Message = {
 export default function ChatBox() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { id: 1, text: "Hey! How can I help you today?", sender: "agent" },
   ]);
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -32,7 +31,7 @@ export default function ChatBox() {
         <div className="w-80 h-96 bg-white border border-gray-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
           {/* Header */}
           <div className="px-4 py-3 bg-blue-600 flex justify-between items-center">
-            <span className="text-white font-semibold text-sm">Support</span>
+            <span className="text-white font-semibold text-sm">Dispute Chat</span>
             <button onClick={() => setIsOpen(false)} className="text-white cursor-pointer">✕</button>
           </div>
 
@@ -55,7 +54,7 @@ export default function ChatBox() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
               placeholder="Type a message..."
-              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none"
+              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-black outline-none"
             />
             <button onClick={sendMessage} className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm cursor-pointer">↑</button>
           </div>

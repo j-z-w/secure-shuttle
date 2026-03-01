@@ -14,6 +14,7 @@ import {
   releaseFundsByPublicId,
   syncFunding,
 } from "@/app/lib/api";
+import ChatBox from "../chat";
 import type { BalanceResponse, Escrow, EscrowTransaction } from "@/app/lib/types";
 import EscrowStatusBadge from "@/app/components/EscrowStatusBadge";
 import CopyButton from "@/app/components/CopyButton";
@@ -551,6 +552,7 @@ export default function SenderEscrowPage() {
             Back To Claim Page
           </Link>
         </div>
+        <ChatBox/>
       </div>
     </div>
   );
