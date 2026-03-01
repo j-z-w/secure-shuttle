@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import {
   checkTransactionStatus,
@@ -19,6 +19,7 @@ import type { BalanceResponse, Escrow, EscrowTransaction } from "@/app/lib/types
 import EscrowStatusBadge from "@/app/components/EscrowStatusBadge";
 import CopyButton from "@/app/components/CopyButton";
 import TransactionStatusWheel, { type StatusStep } from "@/app/components/TransactionStatusWheel";
+import { loadJoinToken, saveJoinToken } from "@/app/lib/joinTokenStore";
 
 const AUTO_SCAN_INTERVAL_MS = 5_000;
 const TERMINAL_ESCROW_STATUSES = new Set(["released", "cancelled"]);
@@ -62,8 +63,10 @@ function latestDepositTransaction(transactions: EscrowTransaction[]): EscrowTran
 
 export default function SenderEscrowPage() {
   const params = useParams();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const publicId = String(params.id);
+  const joinTokenFromUrl = searchParams.get("join_token")?.trim() ?? "";
   const { isLoaded, isSignedIn, user } = useUser();
   const actorUserId = user?.id ?? "";
 
@@ -80,19 +83,32 @@ export default function SenderEscrowPage() {
 
   const [joinToken, setJoinToken] = useState("");
   const [disputeReason, setDisputeReason] = useState("");
+  const [showTechnicalIds, setShowTechnicalIds] = useState(false);
 
   const scanInFlightRef = useRef(false);
 
   useEffect(() => {
-    const token = searchParams.get("join_token");
-    if (token) setJoinToken(token);
-  }, [searchParams]);
+    const token = joinTokenFromUrl || loadJoinToken(publicId);
+    if (!token) return;
+    setJoinToken(token);
+    saveJoinToken(publicId, token);
+    if (joinTokenFromUrl) {
+      router.replace(`/escrow/${encodeURIComponent(publicId)}/sender`);
+    }
+  }, [joinTokenFromUrl, publicId, router]);
 
-  const fetchEscrowCore = useCallback(async (): Promise<Escrow> => {
+  const fetchEscrowCore = useCallback(async (syncFundingState = false): Promise<Escrow> => {
     const token = joinToken.trim();
     try {
       const current = await getEscrowByPublicId(publicId);
-      if (TERMINAL_ESCROW_STATUSES.has(current.status) || current.funded_at) {
+      if (!syncFundingState) {
+        return current;
+      }
+      if (
+        TERMINAL_ESCROW_STATUSES.has(current.status) ||
+        current.status === "disputed" ||
+        current.funded_at
+      ) {
         return current;
       }
       try {
@@ -135,7 +151,7 @@ export default function SenderEscrowPage() {
   const loadEscrow = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchEscrowCore();
+      const data = await fetchEscrowCore(false);
       setEscrow(data);
       setError(null);
       await fetchBalanceAndTransactions(data.id);
@@ -156,7 +172,7 @@ export default function SenderEscrowPage() {
       scanInFlightRef.current = true;
       if (manual) setScanLoading(true);
       try {
-      const data = await fetchEscrowCore();
+      const data = await fetchEscrowCore(true);
       setEscrow(data);
       await fetchBalanceAndTransactions(data.id);
       setLastScanAt(new Date().toISOString());
@@ -172,15 +188,27 @@ export default function SenderEscrowPage() {
   );
 
   useEffect(() => {
-    loadEscrow();
-  }, [loadEscrow]);
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      setLoading(false);
+      return;
+    }
+    void loadEscrow();
+  }, [isLoaded, isSignedIn, loadEscrow]);
 
   useEffect(() => {
     const runScan = () => {
       if (document.visibilityState !== "visible") return;
-      if (escrow && TERMINAL_ESCROW_STATUSES.has(escrow.status)) return;
+      if (
+        escrow &&
+        (TERMINAL_ESCROW_STATUSES.has(escrow.status) || escrow.status === "disputed")
+      ) {
+        return;
+      }
       void scanChain(false);
     };
+
+    if (!isLoaded || !isSignedIn) return;
 
     const timer = window.setInterval(runScan, AUTO_SCAN_INTERVAL_MS);
     document.addEventListener("visibilitychange", runScan);
@@ -189,7 +217,7 @@ export default function SenderEscrowPage() {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", runScan);
     };
-  }, [escrow, scanChain]);
+  }, [escrow, scanChain, isLoaded, isSignedIn]);
 
   const withAction = useCallback(async (name: string, fn: () => Promise<void>) => {
     setActionLoading(name);
@@ -205,6 +233,11 @@ export default function SenderEscrowPage() {
   }, []);
 
   const actorIsSender = escrow?.payer_user_id === actorUserId;
+  const actorDisplayName =
+    user?.fullName ||
+    user?.username ||
+    user?.primaryEmailAddress?.emailAddress ||
+    "Signed-in account";
   const minimumRequiredLamports =
     escrow?.expected_amount_lamports && escrow.expected_amount_lamports > 0
       ? escrow.expected_amount_lamports
@@ -240,7 +273,7 @@ export default function SenderEscrowPage() {
     if (fundingConfirmed && !serviceProvided) {
       return "Funding Confirmed On-Chain";
     }
-    if (serviceProvided && !releaseSubmitted) return "Service Provided • Waiting For Release";
+    if (serviceProvided && !releaseSubmitted) return "Service Provided - Waiting For Release";
     if (releaseFailed) return "Release Failed";
     if (releaseSubmitted && !releaseConfirmed) return "Release Pending On-Chain";
     if (recipientReceived) return "Recipient Received";
@@ -267,7 +300,7 @@ export default function SenderEscrowPage() {
         label: "Funding Detected",
         state: hasFundingBalance || fundingConfirmed || !!latestDepositTx ? "done" : "todo",
         detail: latestDepositTx
-          ? `Tx ${shortSig(latestDepositTx.signature)} • ${latestDepositTx.status}`
+          ? `Tx ${shortSig(latestDepositTx.signature)} - ${latestDepositTx.status}`
           : balance
           ? `${balance.balance_sol} SOL in escrow wallet`
           : undefined,
@@ -293,7 +326,7 @@ export default function SenderEscrowPage() {
           ? "todo"
           : "todo",
         detail: latestReleaseTx
-          ? `Tx ${shortSig(latestReleaseTx.signature)} • ${latestReleaseTx.status}`
+          ? `Tx ${shortSig(latestReleaseTx.signature)} - ${latestReleaseTx.status}`
           : undefined,
       },
       {
@@ -394,24 +427,49 @@ export default function SenderEscrowPage() {
         <section className="bg-neutral-900 rounded-xl p-5 border border-neutral-800 mt-4 mb-4">
           <h2 className="text-lg font-semibold mb-3">Your Account</h2>
           <div className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2">
-            <span className="text-xs text-neutral-200 font-mono truncate flex-1">
-              {actorUserId || (isLoaded ? "Not signed in" : "Loading...")}
+            <span className="text-sm text-neutral-200 truncate flex-1">
+              {actorUserId ? actorDisplayName : isLoaded ? "Not signed in" : "Loading..."}
             </span>
+            <button
+              onClick={() => setShowTechnicalIds((prev) => !prev)}
+              className="bg-neutral-700 hover:bg-neutral-600 rounded-lg px-3 py-2 text-xs"
+            >
+              {showTechnicalIds ? "Hide IDs" : "Show IDs"}
+            </button>
           </div>
-          <div className="grid sm:grid-cols-2 gap-2 mt-2">
-            <input
-              value={joinToken}
-              onChange={(e) => setJoinToken(e.target.value)}
-              className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#0070f3]"
-              placeholder="Join token"
-            />
+          {showTechnicalIds ? (
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-xs text-neutral-500">User ID</span>
+              <span className="text-xs text-neutral-300 font-mono truncate flex-1">{actorUserId || "-"}</span>
+              {actorUserId ? <CopyButton value={actorUserId} /> : null}
+            </div>
+          ) : null}
+          <div className="mt-2 flex items-center gap-2">
             <button
               onClick={loadEscrow}
               className="bg-neutral-800 hover:bg-neutral-700 rounded-lg px-3 py-2 text-sm"
             >
-              {loading ? "Loading..." : "Refresh Escrow"}
+              {loading ? "Syncing..." : "Sync Now"}
             </button>
+            <span className="text-xs text-neutral-500">
+              {escrow?.status === "disputed" ? "Auto-sync paused during dispute" : "Auto-sync runs every 5s"}
+            </span>
           </div>
+          {showTechnicalIds ? (
+            <div className="mt-2">
+              <label className="block text-xs text-neutral-500 mb-1">Join Token (advanced)</label>
+              <input
+                value={joinToken}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setJoinToken(next);
+                  saveJoinToken(publicId, next);
+                }}
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:border-[#0070f3]"
+                placeholder="Join token"
+              />
+            </div>
+          ) : null}
         </section>
 
         <div className="grid lg:grid-cols-2 gap-4">
@@ -463,8 +521,10 @@ export default function SenderEscrowPage() {
               </button>
             </div>
             <p className="text-xs text-neutral-500 mt-2">
-              Auto-scanning every 5s
-              {lastScanAt ? ` • Last scan ${new Date(lastScanAt).toLocaleTimeString()}` : ""}
+              {escrow?.status === "disputed"
+                ? "Auto-scanning paused during dispute"
+                : "Auto-scanning every 5s"}
+              {lastScanAt ? ` - Last scan ${new Date(lastScanAt).toLocaleTimeString()}` : ""}
             </p>
           </section>
 
@@ -497,9 +557,15 @@ export default function SenderEscrowPage() {
             <h2 className="text-lg font-semibold mb-3">Escrow Info</h2>
             <div className="grid sm:grid-cols-2 gap-y-2 text-sm">
               <p className="text-neutral-500">Sender</p>
-              <p className="font-mono text-right">{escrow?.payer_user_id ?? "-"}</p>
+              <p className="text-right">
+                {escrow?.payer_user_id
+                  ? escrow.payer_user_id === actorUserId
+                    ? "You (Sender)"
+                    : "Sender account claimed"
+                  : "Unclaimed"}
+              </p>
               <p className="text-neutral-500">Recipient</p>
-              <p className="font-mono text-right">{escrow?.payee_user_id ?? "-"}</p>
+              <p className="text-right">{escrow?.payee_user_id ? "Recipient account claimed" : "Unclaimed"}</p>
               <p className="text-neutral-500">Deposit Wallet</p>
               <div className="flex items-center justify-end gap-2">
                 <span className="font-mono text-right truncate">{escrow?.public_key ?? "-"}</span>
@@ -510,6 +576,20 @@ export default function SenderEscrowPage() {
               <p className="text-neutral-500">Current Balance</p>
               <p className="font-mono text-right">{balance ? `${balance.balance_sol} SOL` : "-"}</p>
             </div>
+            {showTechnicalIds ? (
+              <div className="mt-4 grid sm:grid-cols-2 gap-y-2 text-xs border-t border-neutral-800 pt-3">
+                <p className="text-neutral-500">Sender User ID</p>
+                <div className="flex items-center justify-end gap-2">
+                  <span className="font-mono truncate">{escrow?.payer_user_id ?? "-"}</span>
+                  {escrow?.payer_user_id ? <CopyButton value={escrow.payer_user_id} /> : null}
+                </div>
+                <p className="text-neutral-500">Recipient User ID</p>
+                <div className="flex items-center justify-end gap-2">
+                  <span className="font-mono truncate">{escrow?.payee_user_id ?? "-"}</span>
+                  {escrow?.payee_user_id ? <CopyButton value={escrow.payee_user_id} /> : null}
+                </div>
+              </div>
+            ) : null}
           </section>
 
           <section className="bg-neutral-900 rounded-xl p-5 border border-neutral-800 lg:col-span-2">
@@ -544,16 +624,20 @@ export default function SenderEscrowPage() {
 
         <div className="text-center mt-6">
           <Link
-            href={`/claim?public_id=${encodeURIComponent(publicId)}${
-              joinToken ? `&join_token=${encodeURIComponent(joinToken)}` : ""
-            }`}
+            href={`/claim?public_id=${encodeURIComponent(publicId)}`}
             className="text-sm text-neutral-500 hover:text-neutral-300 transition-colors"
           >
             Back To Claim Page
           </Link>
         </div>
-        <ChatBox/>
+        <ChatBox
+          publicId={publicId}
+          isDisputed={escrow?.status === "disputed"}
+          payerUserId={escrow?.payer_user_id}
+          payeeUserId={escrow?.payee_user_id}
+        />
       </div>
     </div>
   );
 }
+

@@ -6,6 +6,7 @@ import Image from "next/image";
 import AmountInput from "@/app/components/AmountInput";
 import BackButton from "@/app/components/BackButton";
 import { createEscrow } from "@/app/lib/api";
+import { saveJoinToken } from "@/app/lib/joinTokenStore";
 
 function validateAmount(value: string): string | null {
   if (!value) return "Amount is required";
@@ -45,10 +46,8 @@ export default function PayPage() {
         expected_amount_lamports: lamports,
       });
       if (escrow.join_token) {
-        const qs = new URLSearchParams({
-          public_id: escrow.public_id,
-          join_token: escrow.join_token,
-        });
+        saveJoinToken(escrow.public_id, escrow.join_token);
+        const qs = new URLSearchParams({ public_id: escrow.public_id });
         router.push(`/claim?${qs.toString()}`);
       } else {
         router.push(`/escrow/${escrow.public_id}`);

@@ -1,17 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import ChatBox from "./chat";
 import { useUser } from "@clerk/nextjs";
-import { cancelEscrowByPublicd } from "@/app/lib/api";
+import { cancelEscrowByPublicId } from "@/app/lib/api";
+import { saveJoinToken } from "@/app/lib/joinTokenStore";
 
 export default function EscrowRouteHubPage() {
   const params = useParams();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const publicId = String(params.id);
-  const joinToken = searchParams.get("join_token") ?? "";
+  const joinTokenFromUrl = searchParams.get("join_token")?.trim() ?? "";
   const { isLoaded, isSignedIn, user } = useUser();
 
   const [cancelBehavior, setCancelBehavior] = useState<
@@ -27,15 +29,15 @@ export default function EscrowRouteHubPage() {
       : "";
   const isAdmin = role === "admin";
 
-  const claimHref = `/claim?public_id=${encodeURIComponent(publicId)}${
-    joinToken ? `&join_token=${encodeURIComponent(joinToken)}` : ""
-  }`;
-  const senderHref = `/escrow/${encodeURIComponent(publicId)}/sender${
-    joinToken ? `?join_token=${encodeURIComponent(joinToken)}` : ""
-  }`;
-  const recipientHref = `/escrow/${encodeURIComponent(publicId)}/recipient${
-    joinToken ? `?join_token=${encodeURIComponent(joinToken)}` : ""
-  }`;
+  useEffect(() => {
+    if (!joinTokenFromUrl) return;
+    saveJoinToken(publicId, joinTokenFromUrl);
+    router.replace(`/escrow/${encodeURIComponent(publicId)}`);
+  }, [joinTokenFromUrl, publicId, router]);
+
+  const claimHref = `/claim?public_id=${encodeURIComponent(publicId)}`;
+  const senderHref = `/escrow/${encodeURIComponent(publicId)}/sender`;
+  const recipientHref = `/escrow/${encodeURIComponent(publicId)}/recipient`;
 
   function shortSig(sig: string): string {
     if (sig.length <= 20) return sig;
@@ -175,7 +177,7 @@ export default function EscrowRouteHubPage() {
           )}
         </section>
       </div>
-      <ChatBox/>
+      <ChatBox publicId={publicId} isDisputed />
     </div>
   );
 }

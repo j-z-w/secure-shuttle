@@ -11,12 +11,21 @@ load_dotenv(_BACKEND_DIR / ".env.local")
 convex_url = os.getenv("CONVEX_URL") or os.getenv("NEXT_PUBLIC_CONVEX_URL")
 if not convex_url:
     raise RuntimeError("Set CONVEX_URL or NEXT_PUBLIC_CONVEX_URL in backend/.env.local")
+convex_internal_api_key = (os.getenv("CONVEX_INTERNAL_API_KEY") or "").strip()
+if not convex_internal_api_key:
+    raise RuntimeError("Set CONVEX_INTERNAL_API_KEY in backend/.env.local")
 
 response = httpx.post(
     f"{convex_url.rstrip('/')}/api/query",
     json={
         "path": "convex_escrows:list",
-        "args": {"status_filter": None, "limit": 5, "offset": 0, "mine_only": False},
+        "args": {
+            "internal_key": convex_internal_api_key,
+            "status_filter": None,
+            "limit": 5,
+            "offset": 0,
+            "mine_only": False,
+        },
     },
     timeout=20.0,
 )

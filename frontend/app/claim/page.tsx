@@ -1,44 +1,79 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { claimRole, syncFunding } from "@/app/lib/api";
+import { loadJoinToken, saveJoinToken } from "@/app/lib/joinTokenStore";
 import type { Escrow } from "@/app/lib/types";
 import CopyButton from "@/app/components/CopyButton";
 
-const AUTO_REFRESH_INTERVAL_MS = 5_000;
-
-function shortUserId(value: string | null | undefined): string {
-  if (!value) return "-";
-  if (value.length <= 14) return value;
-  return `${value.slice(0, 7)}...${value.slice(-5)}`;
-}
+const AUTO_REFRESH_INTERVAL_MS = 15_000;
 
 export default function ClaimRolePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const publicId = searchParams.get("public_id")?.trim() ?? "";
-  const joinToken = searchParams.get("join_token")?.trim() ?? "";
+  const rawJoinToken = searchParams.get("join_token")?.trim() ?? "";
+  const searchParamsString = searchParams.toString();
   const { isLoaded, isSignedIn, user } = useUser();
   const actorUserId = user?.id ?? "";
 
   const [origin, setOrigin] = useState("");
+  const [joinToken, setJoinToken] = useState("");
+  const [hashJoinToken, setHashJoinToken] = useState("");
   const [escrow, setEscrow] = useState<Escrow | null>(null);
   const [loadingState, setLoadingState] = useState(false);
   const [stateError, setStateError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<"sender" | "recipient" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showTechnicalIds, setShowTechnicalIds] = useState(false);
+  const refreshInFlightRef = useRef(false);
 
   useEffect(() => {
     setOrigin(window.location.origin);
+    const hash = window.location.hash.startsWith("#")
+      ? window.location.hash.slice(1)
+      : window.location.hash;
+    const hashParams = new URLSearchParams(hash);
+    const hashToken = hashParams.get("join_token")?.trim() ?? "";
+    if (hashToken) {
+      setHashJoinToken(hashToken);
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}`
+      );
+    }
   }, []);
 
-  const refreshClaimState = useCallback(async () => {
-    if (!publicId || !joinToken) return;
-    setLoadingState(true);
+  useEffect(() => {
+    if (!publicId) return;
+    const token = rawJoinToken || hashJoinToken || loadJoinToken(publicId);
+    if (token) {
+      setJoinToken(token);
+      saveJoinToken(publicId, token);
+    } else {
+      setJoinToken("");
+    }
+
+    if (rawJoinToken) {
+      const qs = new URLSearchParams(searchParamsString);
+      qs.delete("join_token");
+      const next = qs.toString();
+      router.replace(next ? `/claim?${next}` : "/claim");
+    }
+  }, [hashJoinToken, publicId, rawJoinToken, router, searchParamsString]);
+
+  const refreshClaimState = useCallback(async (silent = false) => {
+    if (!publicId || !joinToken || !isLoaded || !isSignedIn) return;
+    if (refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
+    if (!silent) {
+      setLoadingState(true);
+    }
     try {
       const data = await syncFunding(publicId, { join_token: joinToken });
       setEscrow(data.escrow);
@@ -46,15 +81,18 @@ export default function ClaimRolePage() {
     } catch (err) {
       setStateError(err instanceof Error ? err.message : "Failed to load claim state");
     } finally {
-      setLoadingState(false);
+      refreshInFlightRef.current = false;
+      if (!silent) {
+        setLoadingState(false);
+      }
     }
-  }, [joinToken, publicId]);
+  }, [isLoaded, isSignedIn, joinToken, publicId]);
 
   useEffect(() => {
-    if (!publicId || !joinToken) return;
+    if (!publicId || !joinToken || !isLoaded || !isSignedIn) return;
     const runRefresh = () => {
       if (document.visibilityState === "visible") {
-        void refreshClaimState();
+        void refreshClaimState(true);
       }
     };
 
@@ -66,19 +104,24 @@ export default function ClaimRolePage() {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", runRefresh);
     };
-  }, [joinToken, publicId, refreshClaimState]);
+  }, [isLoaded, isSignedIn, joinToken, publicId, refreshClaimState]);
 
   const sharedClaimLink = useMemo(() => {
     if (!origin || !publicId || !joinToken) return "";
-    return `${origin}/claim?public_id=${encodeURIComponent(
-      publicId
-    )}&join_token=${encodeURIComponent(joinToken)}`;
+    return `${origin}/claim?public_id=${encodeURIComponent(publicId)}#join_token=${encodeURIComponent(
+      joinToken
+    )}`;
   }, [joinToken, origin, publicId]);
 
   const senderClaimedBy = escrow?.payer_user_id ?? null;
   const recipientClaimedBy = escrow?.payee_user_id ?? null;
   const actorIsSender = senderClaimedBy === actorUserId;
   const actorIsRecipient = recipientClaimedBy === actorUserId;
+  const actorDisplayName =
+    user?.fullName ||
+    user?.username ||
+    user?.primaryEmailAddress?.emailAddress ||
+    "Signed-in account";
 
   const senderLocked = !!senderClaimedBy && !actorIsSender;
   const recipientLocked = !!recipientClaimedBy && !actorIsRecipient;
@@ -99,9 +142,7 @@ export default function ClaimRolePage() {
     !actorUserId;
 
   function goToRolePage(role: "sender" | "recipient") {
-    router.push(
-      `/escrow/${encodeURIComponent(publicId)}/${role}?join_token=${encodeURIComponent(joinToken)}`
-    );
+    router.push(`/escrow/${encodeURIComponent(publicId)}/${role}`);
   }
 
   async function handleClaim(role: "sender" | "recipient") {
@@ -153,7 +194,7 @@ export default function ClaimRolePage() {
         {(!publicId || !joinToken) && (
           <div className="bg-red-950/40 border border-red-800/30 rounded-lg p-4 mb-4">
             <p className="text-sm text-red-300">
-              Invalid claim link. Expected `public_id` and `join_token` query params.
+              Invalid claim session. Open the original claim link again to restore access.
             </p>
           </div>
         )}
@@ -189,20 +230,37 @@ export default function ClaimRolePage() {
         <section className="bg-neutral-900 rounded-xl p-5 border border-neutral-800 mb-4">
           <h2 className="text-lg font-semibold mb-3">Your Account</h2>
           <div className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2">
-            <span className="text-xs text-neutral-200 font-mono truncate flex-1">
-              {actorUserId || (isLoaded ? "Not signed in" : "Loading...")}
+            <span className="text-sm text-neutral-200 truncate flex-1">
+              {actorUserId ? actorDisplayName : isLoaded ? "Not signed in" : "Loading..."}
             </span>
             <button
+              onClick={() => setShowTechnicalIds((prev) => !prev)}
+              className="px-3 py-2 text-xs rounded-lg bg-neutral-700 hover:bg-neutral-600"
+            >
+              {showTechnicalIds ? "Hide IDs" : "Show IDs"}
+            </button>
+            <button
               onClick={refreshClaimState}
-              disabled={actionLoading !== null || loadingState}
+              disabled={actionLoading !== null || loadingState || !isLoaded || !isSignedIn}
               className="px-3 py-2 text-xs rounded-lg bg-neutral-700 hover:bg-neutral-600 disabled:opacity-50"
             >
-              {loadingState ? "Refreshing..." : "Refresh"}
+              {loadingState ? "Syncing..." : "Sync"}
             </button>
           </div>
-          <p className="text-xs text-neutral-500 mt-2">
-            Escrow: <span className="font-mono text-neutral-300">{publicId || "-"}</span>
-          </p>
+          {showTechnicalIds && (
+            <div className="mt-2 space-y-1 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-neutral-500">User ID:</span>
+                <span className="font-mono text-neutral-300 truncate flex-1">{actorUserId || "-"}</span>
+                {actorUserId ? <CopyButton value={actorUserId} /> : null}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-neutral-500">Escrow ID:</span>
+                <span className="font-mono text-neutral-300 truncate flex-1">{publicId || "-"}</span>
+                {publicId ? <CopyButton value={publicId} /> : null}
+              </div>
+            </div>
+          )}
         </section>
 
         <div className="grid sm:grid-cols-2 gap-4">
@@ -213,8 +271,18 @@ export default function ClaimRolePage() {
           >
             <h3 className="text-lg font-semibold">Sender</h3>
             <p className="text-xs text-neutral-500 mt-1">
-              Claimed by: <span className="font-mono">{shortUserId(senderClaimedBy)}</span>
+              Claimed by:{" "}
+              <span className="text-neutral-300">
+                {actorIsSender ? "You" : senderClaimedBy ? "Sender account claimed" : "Unclaimed"}
+              </span>
             </p>
+            {showTechnicalIds && senderClaimedBy ? (
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-xs text-neutral-500">ID:</span>
+                <span className="text-xs font-mono text-neutral-300 truncate flex-1">{senderClaimedBy}</span>
+                <CopyButton value={senderClaimedBy} />
+              </div>
+            ) : null}
             {actorIsRecipient && (
               <p className="text-xs text-yellow-300 mt-2">
                 You already claimed recipient, so sender is blocked for this account.
@@ -242,8 +310,22 @@ export default function ClaimRolePage() {
           >
             <h3 className="text-lg font-semibold">Recipient</h3>
             <p className="text-xs text-neutral-500 mt-1">
-              Claimed by: <span className="font-mono">{shortUserId(recipientClaimedBy)}</span>
+              Claimed by:{" "}
+              <span className="text-neutral-300">
+                {actorIsRecipient
+                  ? "You"
+                  : recipientClaimedBy
+                  ? "Recipient account claimed"
+                  : "Unclaimed"}
+              </span>
             </p>
+            {showTechnicalIds && recipientClaimedBy ? (
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-xs text-neutral-500">ID:</span>
+                <span className="text-xs font-mono text-neutral-300 truncate flex-1">{recipientClaimedBy}</span>
+                <CopyButton value={recipientClaimedBy} />
+              </div>
+            ) : null}
             {actorIsSender && (
               <p className="text-xs text-yellow-300 mt-2">
                 You already claimed sender, so recipient is blocked for this account.

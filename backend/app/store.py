@@ -14,6 +14,8 @@ from typing import Optional
 import httpx
 from dotenv import load_dotenv
 
+from app.config import settings
+
 _BACKEND_DIR = Path(__file__).resolve().parents[1]
 load_dotenv(_BACKEND_DIR / ".env")
 load_dotenv(_BACKEND_DIR / ".env.local")
@@ -23,6 +25,9 @@ if not CONVEX_URL:
     raise RuntimeError("Set NEXT_PUBLIC_CONVEX_URL or CONVEX_URL in backend/.env.local")
 
 CONVEX_API = CONVEX_URL.rstrip("/")
+CONVEX_INTERNAL_API_KEY = (settings.convex_internal_api_key or "").strip()
+if not CONVEX_INTERNAL_API_KEY:
+    raise RuntimeError("Set CONVEX_INTERNAL_API_KEY in backend/.env.local")
 _ESCROW_META_PREFIX = "__ssmeta_v1__:"
 _ESCROW_INSERT_FIELDS = {
     "public_key",
@@ -171,9 +176,11 @@ def _list_all_escrow_docs(status_filter: Optional[str] = None) -> list[dict]:
 
 
 def _query(function: str, args: Optional[dict] = None):
+    payload_args = _clean_args(args)
+    payload_args["internal_key"] = CONVEX_INTERNAL_API_KEY
     r = httpx.post(
         f"{CONVEX_API}/api/query",
-        json={"path": function, "args": _clean_args(args)},
+        json={"path": function, "args": payload_args},
     )
     r.raise_for_status()
     data = r.json()
@@ -183,9 +190,11 @@ def _query(function: str, args: Optional[dict] = None):
 
 
 def _mutation(function: str, args: Optional[dict] = None):
+    payload_args = _clean_args(args)
+    payload_args["internal_key"] = CONVEX_INTERNAL_API_KEY
     r = httpx.post(
         f"{CONVEX_API}/api/mutation",
-        json={"path": function, "args": _clean_args(args)},
+        json={"path": function, "args": payload_args},
     )
     r.raise_for_status()
     data = r.json()
@@ -283,6 +292,22 @@ def _format_transaction(doc: dict) -> dict:
         "raw_error": doc.get("raw_error"),
         "memo": doc.get("memo"),
         "recorded_at": _to_datetime(doc.get("_creationTime")),
+    }
+
+
+def _format_dispute_message(doc: dict) -> dict:
+    if doc is None:
+        return None
+    return {
+        "id": doc["_id"],
+        "escrow_id": doc["escrow_id"],
+        "sender_user_id": doc["sender_user_id"],
+        "sender_role": doc["sender_role"],
+        "body": doc.get("body"),
+        "attachments": doc.get("attachments") or [],
+        "created_at": _to_datetime_optional(doc.get("created_at")) or _to_datetime(
+            doc.get("_creationTime")
+        ),
     }
 
 
@@ -423,3 +448,26 @@ def update_transaction(signature: str, updates: dict) -> Optional[dict]:
         "updates": clean,
     })
     return _format_transaction(doc) if doc else None
+
+
+def list_dispute_messages(escrow_id: str) -> list[dict]:
+    docs = _query("convex_dispute_chat:listByEscrow", {"escrow_id": escrow_id})
+    return [_format_dispute_message(doc) for doc in docs]
+
+
+def insert_dispute_message(data: dict) -> dict:
+    doc = _mutation(
+        "convex_dispute_chat:insert",
+        {
+            "escrow_id": data["escrow_id"],
+            "sender_user_id": data["sender_user_id"],
+            "sender_role": data["sender_role"],
+            "body": data.get("body"),
+            "attachments": data.get("attachments") or [],
+        },
+    )
+    return _format_dispute_message(doc)
+
+
+def generate_dispute_upload_url() -> str:
+    return _mutation("convex_dispute_chat:generateUploadUrl", {})

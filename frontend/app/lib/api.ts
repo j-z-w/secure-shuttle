@@ -13,6 +13,9 @@ import type {
   FundingSyncResponse,
   ServiceCompletePayload,
   DisputePayload,
+  DisputeMessage,
+  DisputeMessageCreatePayload,
+  DisputeUploadUrlResponse,
   EscrowTransaction,
   TransactionStatusResponse,
 } from "./types";
@@ -26,13 +29,42 @@ type ClerkUser = {
 };
 
 type ClerkSession = {
-  getToken?: () => Promise<string | null>;
+  getToken?: (options?: { skipCache?: boolean }) => Promise<string | null>;
 };
 
 type BrowserClerk = {
+  loaded?: boolean;
   user?: ClerkUser | null;
   session?: ClerkSession | null;
 };
+
+const CLERK_READY_WAIT_MS = 1_200;
+const CLERK_RETRY_WAIT_MS = 2_000;
+const CLERK_READY_POLL_MS = 50;
+const TOKEN_CACHE_TTL_MS = 15_000;
+
+let cachedToken: string | null = null;
+let cachedTokenAtMs = 0;
+
+function getCachedToken(): string | null {
+  if (!cachedToken) return null;
+  if (Date.now() - cachedTokenAtMs > TOKEN_CACHE_TTL_MS) {
+    cachedToken = null;
+    cachedTokenAtMs = 0;
+    return null;
+  }
+  return cachedToken;
+}
+
+function setCachedToken(token: string): void {
+  cachedToken = token;
+  cachedTokenAtMs = Date.now();
+}
+
+function clearCachedToken(): void {
+  cachedToken = null;
+  cachedTokenAtMs = 0;
+}
 
 function getBrowserClerk(): BrowserClerk | null {
   if (typeof window === "undefined") return null;
@@ -45,30 +77,58 @@ export function getUserId(): string {
 }
 
 // Backward-compatible no-op for legacy call sites.
-export function setUserId(_id: string) {}
+export function setUserId(id: string) {
+  void id;
+}
 
-async function authHeaders(): Promise<Record<string, string>> {
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function waitForClerkReady(timeoutMs: number): Promise<BrowserClerk | null> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const clerk = getBrowserClerk();
+    if (clerk?.loaded || clerk?.user?.id) {
+      return clerk;
+    }
+    await sleep(CLERK_READY_POLL_MS);
+  }
+  return getBrowserClerk();
+}
+
+async function authHeaders(
+  waitMs = CLERK_READY_WAIT_MS,
+  forceFreshToken = false
+): Promise<Record<string, string>> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
-  const clerk = getBrowserClerk();
-  const userId = clerk?.user?.id?.trim();
-  if (userId) {
-    headers["X-User-Id"] = userId;
-  }
-  const role = clerk?.user?.publicMetadata?.role;
-  if (typeof role === "string" && role.trim()) {
-    headers["X-User-Role"] = role.trim();
+  if (!forceFreshToken) {
+    const cached = getCachedToken();
+    if (cached) {
+      headers.Authorization = `Bearer ${cached}`;
+      return headers;
+    }
   }
 
+  const clerk = await waitForClerkReady(waitMs);
   if (clerk?.session?.getToken) {
     try {
-      const token = await clerk.session.getToken();
+      const token = await clerk.session.getToken(
+        forceFreshToken ? { skipCache: true } : undefined
+      );
       if (token) {
+        setCachedToken(token);
         headers.Authorization = `Bearer ${token}`;
+      } else if (forceFreshToken) {
+        clearCachedToken();
       }
     } catch {
+      if (forceFreshToken) {
+        clearCachedToken();
+      }
       // If token retrieval fails, backend will reject unauthenticated calls.
     }
   }
@@ -77,14 +137,27 @@ async function authHeaders(): Promise<Record<string, string>> {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const headers = await authHeaders();
-  const res = await fetch(`${BASE}${path}`, {
+  const initialAuthHeaders = await authHeaders();
+  const buildInit = (auth: Record<string, string>): RequestInit => ({
     headers: {
-      ...headers,
+      ...auth,
       ...(options?.headers as Record<string, string> | undefined),
     },
+    cache: "no-store",
     ...options,
   });
+
+  let res = await fetch(`${BASE}${path}`, buildInit(initialAuthHeaders));
+
+  // New tabs can race Clerk hydration/token minting; retry once with a fresh token attempt.
+  if (res.status === 401) {
+    clearCachedToken();
+    const retryAuthHeaders = await authHeaders(CLERK_RETRY_WAIT_MS, true);
+    if (retryAuthHeaders.Authorization) {
+      res = await fetch(`${BASE}${path}`, buildInit(retryAuthHeaders));
+    }
+  }
+
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.detail ?? `Request failed (${res.status})`);
@@ -264,6 +337,38 @@ export async function openDispute(
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export async function listDisputeMessages(
+  publicId: string
+): Promise<DisputeMessage[]> {
+  return request<DisputeMessage[]>(
+    `/api/v1/escrows/public/${publicId}/dispute/messages`
+  );
+}
+
+export async function createDisputeMessage(
+  publicId: string,
+  payload: DisputeMessageCreatePayload
+): Promise<DisputeMessage> {
+  return request<DisputeMessage>(
+    `/api/v1/escrows/public/${publicId}/dispute/messages`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function createDisputeUploadUrl(
+  publicId: string
+): Promise<DisputeUploadUrlResponse> {
+  return request<DisputeUploadUrlResponse>(
+    `/api/v1/escrows/public/${publicId}/dispute/upload-url`,
+    {
+      method: "POST",
+    }
+  );
 }
 
 export async function getEscrowTransactions(

@@ -38,6 +38,11 @@ function formatShort(value: string | null) {
 
 export default function Dashboard() {
   const { isLoaded, user } = useUser();
+  const userRole =
+    typeof user?.publicMetadata?.role === "string"
+      ? user.publicMetadata.role.toLowerCase()
+      : "";
+  const isAdmin = userRole === "admin";
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [escrows, setEscrows] = useState<Escrow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,7 +77,7 @@ export default function Dashboard() {
       setLoading(true);
       setError(null);
       try {
-        const res = await listEscrows(undefined, "all");
+        const res = await listEscrows(undefined, isAdmin ? "all" : "mine");
         if (!active) return;
         const sorted = [...res.items].sort(
           (a, b) =>
@@ -96,7 +101,7 @@ export default function Dashboard() {
     return () => {
       active = false;
     };
-  }, [isLoaded, user]);
+  }, [isAdmin, isLoaded, user]);
 
   const activeEscrows = useMemo(
     () => escrows.filter((escrow) => ACTIVE_STATUSES.has(escrow.status)),
@@ -242,7 +247,7 @@ export default function Dashboard() {
             {sidebarOpen && "New Escrow"}
           </Link>
           <Link
-            href="/escrows?scope=all"
+            href={isAdmin ? "/escrows?scope=all" : "/escrows"}
             className={`flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-700 ${!sidebarOpen && "justify-center"}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}

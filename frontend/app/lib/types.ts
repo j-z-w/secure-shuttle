@@ -113,6 +113,33 @@ export interface DisputePayload {
   reason?: string;
 }
 
+export interface DisputeAttachment {
+  storage_id: string;
+  file_name?: string | null;
+  content_type?: string | null;
+  size_bytes?: number | null;
+  storage_url?: string | null;
+}
+
+export interface DisputeMessage {
+  id: string;
+  escrow_id: string;
+  sender_user_id: string;
+  sender_role: string;
+  body?: string | null;
+  attachments: DisputeAttachment[];
+  created_at: string;
+}
+
+export interface DisputeMessageCreatePayload {
+  body?: string;
+  attachments?: DisputeAttachment[];
+}
+
+export interface DisputeUploadUrlResponse {
+  upload_url: string;
+}
+
 export interface EscrowTransaction {
   id: string;
   escrow_id: string;

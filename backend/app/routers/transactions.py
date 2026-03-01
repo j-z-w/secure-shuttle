@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth import get_actor_user_id
+from app.exceptions import ForbiddenActionError
 from app.schemas.transaction import (
     TransactionCreate,
     TransactionOut,
@@ -25,6 +26,10 @@ def check_transaction_status(
         escrow_service.get_escrow(data.escrow_id, actor_user_id)
         tx = escrow_service.get_transaction_by_signature(data.signature)
         if tx:
+            if tx.get("escrow_id") != data.escrow_id:
+                raise ForbiddenActionError(
+                    "Signature does not belong to the provided escrow."
+                )
             store.update_transaction(
                 data.signature,
                 {

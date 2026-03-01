@@ -6,6 +6,10 @@ _BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 
 class Settings(BaseSettings):
+    clerk_issuer: str | None = None
+    clerk_audience: str | None = None
+    convex_internal_api_key: str | None = None
+    escrow_secret_key_encryption_key: str | None = None
     solana_rpc_url: str = "https://api.devnet.solana.com"
     solana_network_guard_enabled: bool = True
     allow_mainnet: bool = False

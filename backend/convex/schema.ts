@@ -66,4 +66,22 @@ export default defineSchema({
     .index("by_escrow_id", ["escrow_id"])
     .index("by_signature", ["signature"])
     .index("by_intent_hash", ["intent_hash"]),
+
+  dispute_messages: defineTable({
+    escrow_id: v.id("escrows"),
+    sender_user_id: v.string(),
+    sender_role: v.string(),
+    body: v.optional(v.string()),
+    attachments: v.optional(
+      v.array(
+        v.object({
+          storage_id: v.string(),
+          file_name: v.optional(v.string()),
+          content_type: v.optional(v.string()),
+          size_bytes: v.optional(v.number()),
+        })
+      )
+    ),
+    created_at: v.optional(v.number()),
+  }).index("by_escrow_id", ["escrow_id"]),
 });
