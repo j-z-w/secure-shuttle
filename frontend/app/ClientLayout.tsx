@@ -5,7 +5,11 @@ import { usePathname } from "next/navigation";
 
 const SIDEBAR_PAGES = ["/dashboard", "/profile", "/newEscrow"];
 
-export default function ClientLayout({ children }: { children: React.ReactNode }) {
+export default function ClientLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
   const hasSidebar = SIDEBAR_PAGES.some((p) => pathname.startsWith(p));
 
