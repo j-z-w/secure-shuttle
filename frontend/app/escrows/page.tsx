@@ -43,8 +43,8 @@ export default function EscrowsPage() {
           <Image
             src="/logo.webp"
             alt="Secure Shuttle"
-            width={80}
-            height={80}
+            width={50}
+            height={50}
             className="rounded"
           />
         </div>
@@ -87,9 +87,24 @@ export default function EscrowsPage() {
         {/* Content */}
         {loading ? (
           <div className="flex items-center justify-center py-20 text-neutral-400">
-            <svg className="size-5 animate-spin mr-3" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            <svg
+              className="size-5 animate-spin mr-3"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
             </svg>
             Loading...
           </div>
