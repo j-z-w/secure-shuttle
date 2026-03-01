@@ -68,7 +68,7 @@ export default function ChatBox({
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messageListRef = useRef<HTMLDivElement>(null);
   const loadInFlightRef = useRef(false);
   const probeInFlightRef = useRef(false);
 
@@ -153,8 +153,12 @@ export default function ChatBox({
   }, [canUseChat, isOpen, loadMessages, sending, uploading]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (!isOpen || !canUseChat) return;
+    const listEl = messageListRef.current;
+    if (!listEl) return;
+    // Keep auto-scroll scoped to chat pane; avoid scrolling the main page.
+    listEl.scrollTop = listEl.scrollHeight;
+  }, [canUseChat, isOpen, messages]);
 
   const selectedFileLabel = useMemo(() => {
     if (pendingFiles.length === 0) return "";
@@ -254,7 +258,10 @@ export default function ChatBox({
             </div>
           ) : (
             <>
-              <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2.5 bg-slate-100/60">
+              <div
+                ref={messageListRef}
+                className="flex-1 overflow-y-auto p-4 flex flex-col gap-2.5 bg-slate-100/60"
+              >
                 {loading && messages.length === 0 ? (
                   <p className="text-sm text-gray-500">Loading messages...</p>
                 ) : messages.length === 0 ? (
@@ -357,7 +364,6 @@ export default function ChatBox({
                     );
                   })
                 )}
-                <div ref={bottomRef} />
               </div>
 
               <div className="p-3 border-t bg-white flex flex-col gap-2">
