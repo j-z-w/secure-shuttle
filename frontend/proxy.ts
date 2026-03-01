@@ -1,7 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
-const isAdminRoute = createRouteMatcher(['/dashboard']);
+const isAdminRoute = createRouteMatcher(['/dashboard(.*)']);
 const isSignedRoute = createRouteMatcher(['/newEscrow']);
 
 export default clerkMiddleware(async (auth, req) => {
@@ -12,7 +12,7 @@ export default clerkMiddleware(async (auth, req) => {
   }
 
   if (userId && req.nextUrl.pathname === '/signin') {
-    return NextResponse.redirect(new URL('/dashboard', req.url));
+    return NextResponse.redirect(new URL('/', req.url));
   }
 
   if (isSignedRoute(req) && !userId) {
