@@ -11,6 +11,7 @@
 import type * as _internalAuth from "../_internalAuth.js";
 import type * as convex_dispute_chat from "../convex_dispute_chat.js";
 import type * as convex_escrows from "../convex_escrows.js";
+import type * as convex_ratings from "../convex_ratings.js";
 import type * as convex_transactions from "../convex_transactions.js";
 import type * as user_profiles from "../user_profiles.js";
 
@@ -24,6 +25,7 @@ declare const fullApi: ApiFromModules<{
   _internalAuth: typeof _internalAuth;
   convex_dispute_chat: typeof convex_dispute_chat;
   convex_escrows: typeof convex_escrows;
+  convex_ratings: typeof convex_ratings;
   convex_transactions: typeof convex_transactions;
   user_profiles: typeof user_profiles;
 }>;

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
@@ -65,17 +64,6 @@ export default function EscrowsPage() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
         <div className="mb-6">
           <BackButton fallbackHref="/dashboard" />
-        </div>
-
-        {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <Image
-            src="/logo.webp"
-            alt="Secure Shuttle"
-            width={50}
-            height={50}
-            className="rounded"
-          />
         </div>
 
         {/* Header */}

@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useUser, SignOutButton } from "@clerk/nextjs";
-import ZigZag from "./instructions";
 
 export default function Home() {
   const { user } = useUser();
@@ -23,20 +22,7 @@ export default function Home() {
         />
 
         {/* Nav bar */}
-        <nav className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-5">
-          <div className="flex items-center gap-2">
-            <Image
-              src="/logo.webp"
-              alt="Secure Shuttle"
-              width={40}
-              height={40}
-              className="rounded"
-            />
-            <span className="text-lg font-semibold tracking-tight hidden sm:inline">
-              SecureShuttle
-            </span>
-          </div>
-
+        <nav className="relative z-10 flex items-center justify-end px-6 sm:px-10 py-5">
           <div className="flex items-center gap-3">
             {!user && (
               <a

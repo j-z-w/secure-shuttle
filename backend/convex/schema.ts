@@ -84,4 +84,16 @@ export default defineSchema({
     ),
     created_at: v.optional(v.number()),
   }).index("by_escrow_id", ["escrow_id"]),
+
+  escrow_ratings: defineTable({
+    escrow_id: v.id("escrows"),
+    from_user_id: v.string(),
+    to_user_id: v.string(),
+    score: v.number(),
+    comment: v.optional(v.string()),
+    created_at: v.optional(v.number()),
+    updated_at: v.optional(v.number()),
+  })
+    .index("by_escrow_id", ["escrow_id"])
+    .index("by_escrow_from_to", ["escrow_id", "from_user_id", "to_user_id"]),
 });

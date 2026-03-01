@@ -326,6 +326,63 @@ def create_dispute_upload_url_by_public_id(
     return store.generate_dispute_upload_url()
 
 
+def get_rating_state_by_public_id(public_id: str, actor_user_id: str) -> dict:
+    escrow = _get_escrow_by_public_id(public_id)
+    counterpart_user_id = _rating_counterpart_user_id(escrow, actor_user_id)
+    terminal = _is_terminal_for_ratings(escrow)
+
+    my_rating = None
+    received_rating = None
+    can_rate = False
+
+    if terminal and counterpart_user_id:
+        my_rating = store.get_rating_by_users(
+            escrow["id"], actor_user_id, counterpart_user_id
+        )
+        received_rating = store.get_rating_by_users(
+            escrow["id"], counterpart_user_id, actor_user_id
+        )
+        can_rate = True
+
+    return {
+        "can_rate": can_rate,
+        "terminal": terminal,
+        "escrow_status": escrow.get("status") or "open",
+        "counterpart_user_id": counterpart_user_id,
+        "my_rating": my_rating,
+        "received_rating": received_rating,
+    }
+
+
+def submit_rating_by_public_id(
+    public_id: str,
+    actor_user_id: str,
+    score: int,
+    comment: Optional[str] = None,
+) -> dict:
+    escrow = _get_escrow_by_public_id(public_id)
+    if not _is_terminal_for_ratings(escrow):
+        raise InvalidEscrowStateError(
+            "Ratings are available only after escrow is released or cancelled."
+        )
+
+    counterpart_user_id = _rating_counterpart_user_id(escrow, actor_user_id)
+    if not counterpart_user_id:
+        raise ForbiddenActionError("Only sender or recipient can submit ratings.")
+
+    if score < 1 or score > 5:
+        raise InvalidEscrowStateError("Rating score must be between 1 and 5.")
+
+    clean_comment = comment.strip() if comment else None
+    return store.upsert_rating(
+        escrow_id=escrow["id"],
+        from_user_id=actor_user_id,
+        to_user_id=counterpart_user_id,
+        score=score,
+        comment=clean_comment,
+    )
+
+
 def create_invite(public_id: str, actor_user_id: str) -> dict:
     escrow = _get_escrow_by_public_id_for_write(public_id, actor_user_id)
     _ensure_not_terminal(escrow)
@@ -954,6 +1011,20 @@ def _chat_sender_role(escrow: dict, actor_user_id: str, actor_is_admin: bool) ->
     if actor_is_admin:
         return "admin"
     return "participant"
+
+
+def _rating_counterpart_user_id(escrow: dict, actor_user_id: str) -> Optional[str]:
+    payer = escrow.get("payer_user_id")
+    payee = escrow.get("payee_user_id")
+    if actor_user_id == payer:
+        return payee
+    if actor_user_id == payee:
+        return payer
+    return None
+
+
+def _is_terminal_for_ratings(escrow: dict) -> bool:
+    return escrow.get("status") in {"released", "cancelled"}
 
 
 def _ensure_not_terminal(escrow: dict) -> None:

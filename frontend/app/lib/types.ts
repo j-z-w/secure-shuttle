@@ -140,6 +140,31 @@ export interface DisputeUploadUrlResponse {
   upload_url: string;
 }
 
+export interface EscrowRating {
+  id: string;
+  escrow_id: string;
+  from_user_id: string;
+  to_user_id: string;
+  score: number;
+  comment?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EscrowRatingStateResponse {
+  can_rate: boolean;
+  terminal: boolean;
+  escrow_status: string;
+  counterpart_user_id?: string | null;
+  my_rating?: EscrowRating | null;
+  received_rating?: EscrowRating | null;
+}
+
+export interface EscrowRatingCreatePayload {
+  score: number;
+  comment?: string;
+}
+
 export interface EscrowTransaction {
   id: string;
   escrow_id: string;

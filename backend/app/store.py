@@ -314,6 +314,25 @@ def _format_dispute_message(doc: dict) -> dict:
     }
 
 
+def _format_rating(doc: dict) -> dict:
+    if doc is None:
+        return None
+    created_at = _to_datetime_optional(doc.get("created_at")) or _to_datetime(
+        doc.get("_creationTime")
+    )
+    updated_at = _to_datetime_optional(doc.get("updated_at")) or created_at
+    return {
+        "id": doc["_id"],
+        "escrow_id": doc["escrow_id"],
+        "from_user_id": doc["from_user_id"],
+        "to_user_id": doc["to_user_id"],
+        "score": doc["score"],
+        "comment": doc.get("comment"),
+        "created_at": created_at,
+        "updated_at": updated_at,
+    }
+
+
 def _prepare_escrow_updates(updates: dict) -> dict:
     """Convert datetime values in updates dict to epoch ms for Convex."""
     converted = {}
@@ -474,3 +493,40 @@ def insert_dispute_message(data: dict) -> dict:
 
 def generate_dispute_upload_url() -> str:
     return _mutation("convex_dispute_chat:generateUploadUrl", {})
+
+
+def list_ratings(escrow_id: str) -> list[dict]:
+    docs = _query("convex_ratings:listByEscrow", {"escrow_id": escrow_id})
+    return [_format_rating(doc) for doc in docs]
+
+
+def get_rating_by_users(escrow_id: str, from_user_id: str, to_user_id: str) -> Optional[dict]:
+    doc = _query(
+        "convex_ratings:getByEscrowAndUsers",
+        {
+            "escrow_id": escrow_id,
+            "from_user_id": from_user_id,
+            "to_user_id": to_user_id,
+        },
+    )
+    return _format_rating(doc) if doc else None
+
+
+def upsert_rating(
+    escrow_id: str,
+    from_user_id: str,
+    to_user_id: str,
+    score: int,
+    comment: Optional[str] = None,
+) -> dict:
+    doc = _mutation(
+        "convex_ratings:upsert",
+        {
+            "escrow_id": escrow_id,
+            "from_user_id": from_user_id,
+            "to_user_id": to_user_id,
+            "score": score,
+            "comment": comment,
+        },
+    )
+    return _format_rating(doc)

@@ -9,13 +9,20 @@ import {
   getBalance,
   getEscrowByPublicId,
   getEscrowTransactions,
+  getEscrowRatingState,
   markServiceComplete,
   openDispute,
   setRecipientAddress,
+  submitEscrowRating,
   syncFunding,
 } from "@/app/lib/api";
 import ChatBox from "../chat";
-import type { BalanceResponse, Escrow, EscrowTransaction } from "@/app/lib/types";
+import type {
+  BalanceResponse,
+  Escrow,
+  EscrowRatingStateResponse,
+  EscrowTransaction,
+} from "@/app/lib/types";
 import EscrowStatusBadge from "@/app/components/EscrowStatusBadge";
 import CopyButton from "@/app/components/CopyButton";
 import TransactionStatusWheel, { type StatusStep } from "@/app/components/TransactionStatusWheel";
@@ -25,6 +32,7 @@ const AUTO_SCAN_FAST_MS = 5_000;
 const AUTO_SCAN_SLOW_MS = 15_000;
 const TX_STATUS_CHECK_COOLDOWN_MS = 8_000;
 const TERMINAL_ESCROW_STATUSES = new Set(["released", "cancelled"]);
+const COMPLETION_NOTICE_SEEN_KEY = "ss_completion_notice_seen";
 
 function autoScanIntervalMs(escrow: Escrow | null): number {
   if (!escrow) return AUTO_SCAN_FAST_MS;
@@ -85,9 +93,17 @@ export default function RecipientEscrowPage() {
   const [disputeReason, setDisputeReason] = useState("");
   const [showTechnicalIds, setShowTechnicalIds] = useState(false);
   const [joinTokenReady, setJoinTokenReady] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [ratingState, setRatingState] = useState<EscrowRatingStateResponse | null>(null);
+  const [ratingScore, setRatingScore] = useState(5);
+  const [ratingComment, setRatingComment] = useState("");
+  const [ratingLoading, setRatingLoading] = useState(false);
+  const [ratingError, setRatingError] = useState<string | null>(null);
+  const [ratingNotice, setRatingNotice] = useState<string | null>(null);
 
   const scanInFlightRef = useRef(false);
   const lastTxStatusCheckAtRef = useRef(0);
+  const previousStatusRef = useRef<string | null>(null);
 
   useEffect(() => {
     const token = joinTokenFromUrl || loadJoinToken(publicId);
@@ -353,6 +369,75 @@ export default function RecipientEscrowPage() {
     ]
   );
 
+  const loadRatingState = useCallback(async () => {
+    if (!isLoaded || !isSignedIn) return;
+    try {
+      const next = await getEscrowRatingState(publicId);
+      setRatingState(next);
+      if (next.my_rating) {
+        setRatingScore(next.my_rating.score);
+        setRatingComment(next.my_rating.comment ?? "");
+      }
+      setRatingError(null);
+    } catch (err) {
+      setRatingError(err instanceof Error ? err.message : "Failed to load rating state.");
+    }
+  }, [isLoaded, isSignedIn, publicId]);
+
+  useEffect(() => {
+    if (!escrow) return;
+    const status = escrow.status;
+    const terminal = TERMINAL_ESCROW_STATUSES.has(status);
+    const previous = previousStatusRef.current;
+    const wasTerminal = previous ? TERMINAL_ESCROW_STATUSES.has(previous) : false;
+
+    if (terminal && !wasTerminal) {
+      const noticeKey = `${COMPLETION_NOTICE_SEEN_KEY}:${publicId}:${status}`;
+      const seen = typeof window !== "undefined" && window.sessionStorage.getItem(noticeKey) === "1";
+      if (!seen) {
+        setShowCompletionModal(true);
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem(noticeKey, "1");
+        }
+      }
+    }
+    previousStatusRef.current = status;
+  }, [escrow, publicId]);
+
+  useEffect(() => {
+    if (!escrow || !TERMINAL_ESCROW_STATUSES.has(escrow.status)) return;
+    if (!isLoaded || !isSignedIn) return;
+    void loadRatingState();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void loadRatingState();
+      }
+    }, 15_000);
+    return () => window.clearInterval(timer);
+  }, [escrow, isLoaded, isSignedIn, loadRatingState]);
+
+  async function handleSubmitRating() {
+    if (!ratingState?.can_rate) {
+      setRatingError("You can only rate once the escrow is completed.");
+      return;
+    }
+    setRatingLoading(true);
+    setRatingError(null);
+    setRatingNotice(null);
+    try {
+      await submitEscrowRating(publicId, {
+        score: ratingScore,
+        comment: ratingComment.trim() || undefined,
+      });
+      setRatingNotice("Rating submitted.");
+      await loadRatingState();
+    } catch (err) {
+      setRatingError(err instanceof Error ? err.message : "Failed to submit rating.");
+    } finally {
+      setRatingLoading(false);
+    }
+  }
+
   async function handleSetRecipientAddress() {
     if (!actorUserId) {
       setActionError("You must be signed in to set the recipient address.");
@@ -588,6 +673,89 @@ export default function RecipientEscrowPage() {
               {lastScanAt ? ` - Last scan ${new Date(lastScanAt).toLocaleTimeString()}` : ""}
             </p>
           </section>
+
+          {escrow && TERMINAL_ESCROW_STATUSES.has(escrow.status) ? (
+            <section id="deal-review" className="bg-neutral-900 rounded-xl p-5 border border-neutral-800 lg:col-span-2">
+              <h2 className="text-lg font-semibold mb-2">Deal Review</h2>
+              <p className="text-sm text-neutral-400">
+                This escrow is {escrow.status === "released" ? "released" : "cancelled"}.
+                Sender and recipient can rate each other.
+              </p>
+
+              {ratingError ? (
+                <div className="bg-red-950/40 border border-red-800/30 rounded-lg p-3 mt-3">
+                  <p className="text-sm text-red-300">{ratingError}</p>
+                </div>
+              ) : null}
+              {ratingNotice ? (
+                <div className="bg-emerald-950/30 border border-emerald-800/30 rounded-lg p-3 mt-3">
+                  <p className="text-sm text-emerald-300">{ratingNotice}</p>
+                </div>
+              ) : null}
+
+              {ratingState?.my_rating ? (
+                <div className="mt-3">
+                  <p className="text-sm text-neutral-300">Your rating for sender:</p>
+                  <p className="text-yellow-300 text-lg mt-1">
+                    {"★★★★★".slice(0, ratingState.my_rating.score)}
+                    {"☆☆☆☆☆".slice(0, 5 - ratingState.my_rating.score)}
+                  </p>
+                  {ratingState.my_rating.comment ? (
+                    <p className="text-sm text-neutral-400 mt-1">{ratingState.my_rating.comment}</p>
+                  ) : null}
+                </div>
+              ) : ratingState?.can_rate ? (
+                <div className="mt-3">
+                  <p className="text-sm text-neutral-300">Rate sender:</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    {[1, 2, 3, 4, 5].map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setRatingScore(value)}
+                        className={`text-2xl leading-none ${
+                          value <= ratingScore ? "text-yellow-300" : "text-neutral-600"
+                        }`}
+                      >
+                        {value <= ratingScore ? "★" : "☆"}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    value={ratingComment}
+                    onChange={(e) => setRatingComment(e.target.value)}
+                    maxLength={1000}
+                    placeholder="Optional feedback"
+                    className="mt-3 w-full min-h-20 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#0070f3]"
+                  />
+                  <button
+                    onClick={handleSubmitRating}
+                    disabled={ratingLoading}
+                    className="mt-3 bg-[#0070f3] hover:bg-[#005bc4] disabled:opacity-50 rounded-lg px-3 py-2 text-sm"
+                  >
+                    {ratingLoading ? "Submitting..." : "Submit Rating"}
+                  </button>
+                </div>
+              ) : (
+                <p className="text-sm text-neutral-500 mt-3">
+                  Ratings are available only to the sender and recipient once the escrow is complete.
+                </p>
+              )}
+
+              {ratingState?.received_rating ? (
+                <div className="mt-5 border-t border-neutral-800 pt-3">
+                  <p className="text-sm text-neutral-300">Sender&apos;s rating for you:</p>
+                  <p className="text-yellow-300 text-lg mt-1">
+                    {"★★★★★".slice(0, ratingState.received_rating.score)}
+                    {"☆☆☆☆☆".slice(0, 5 - ratingState.received_rating.score)}
+                  </p>
+                  {ratingState.received_rating.comment ? (
+                    <p className="text-sm text-neutral-400 mt-1">{ratingState.received_rating.comment}</p>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
         </div>
 
         <div className="text-center mt-6">
@@ -604,6 +772,38 @@ export default function RecipientEscrowPage() {
           payerUserId={escrow?.payer_user_id}
           payeeUserId={escrow?.payee_user_id}
         />
+
+        {showCompletionModal && escrow && TERMINAL_ESCROW_STATUSES.has(escrow.status) ? (
+          <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-4">
+            <div className="w-full max-w-md bg-neutral-900 border border-neutral-700 rounded-xl p-5">
+              <h3 className="text-xl font-semibold">Escrow Complete</h3>
+              <p className="text-sm text-neutral-300 mt-2">
+                This escrow has been {escrow.status === "released" ? "released" : "cancelled"}.
+                You can now submit a review for the sender.
+              </p>
+              <div className="mt-4 flex justify-end gap-2">
+                {ratingState?.can_rate && !ratingState.my_rating ? (
+                  <button
+                    onClick={() => {
+                      setShowCompletionModal(false);
+                      const section = document.getElementById("deal-review");
+                      section?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                    className="px-3 py-2 rounded-lg bg-[#0070f3] hover:bg-[#005bc4] text-sm"
+                  >
+                    Rate Sender
+                  </button>
+                ) : null}
+                <button
+                  onClick={() => setShowCompletionModal(false)}
+                  className="px-3 py-2 rounded-lg bg-neutral-700 hover:bg-neutral-600 text-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

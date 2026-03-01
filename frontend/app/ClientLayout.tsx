@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { SOUNDS, playSound } from "@/app/lib/sounds";
@@ -10,6 +12,7 @@ export default function ClientLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const isDashboardRoute = pathname?.startsWith("/dashboard");
   const prevPath = useRef(pathname);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingPlaying = useRef(false);
@@ -65,5 +68,27 @@ export default function ClientLayout({
     };
   }, [handleClick, handleInput]);
 
-  return <>{children}</>;
+  if (isDashboardRoute) {
+    return <>{children}</>;
+  }
+
+  return (
+    <>
+      <Link
+        href="/"
+        aria-label="Go to home"
+        className="fixed top-3 left-3 z-[80] block"
+      >
+        <Image
+          src="/logo.webp"
+          alt="Secure Shuttle"
+          width={300}
+          height={64}
+          className="w-[220px] sm:w-[300px] h-auto"
+          priority
+        />
+      </Link>
+      {children}
+    </>
+  );
 }

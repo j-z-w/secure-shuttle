@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { claimRole, syncFunding } from "@/app/lib/api";
@@ -197,10 +196,6 @@ export default function ClaimRolePage() {
   return (
     <div className="min-h-screen bg-[#1d1d1d] text-white">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-        <div className="flex justify-center mb-6">
-          <Image src="/logo.webp" alt="Secure Shuttle" width={80} height={80} className="rounded" />
-        </div>
-
         <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800 mb-4">
           <h1 className="text-2xl font-bold tracking-tight">Claim Role</h1>
           <p className="text-sm text-neutral-400 mt-1">

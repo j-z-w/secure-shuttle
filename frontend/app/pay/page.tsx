@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import AmountInput from "@/app/components/AmountInput";
 import BackButton from "@/app/components/BackButton";
 import { createEscrow } from "@/app/lib/api";
@@ -69,17 +68,6 @@ export default function PayPage() {
       <div className="relative max-w-lg mx-auto px-4 sm:px-6 py-12 sm:py-20">
         <div className="mb-6">
           <BackButton fallbackHref="/dashboard" />
-        </div>
-
-        {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <Image
-            src="/logo.webp"
-            alt="Secure Shuttle"
-            width={120}
-            height={120}
-            className="rounded"
-          />
         </div>
 
         {/* Header */}

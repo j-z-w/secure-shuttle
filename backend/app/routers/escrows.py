@@ -9,6 +9,11 @@ from app.schemas.chat import (
     DisputeMessageOut,
     DisputeUploadUrlOut,
 )
+from app.schemas.rating import (
+    EscrowRatingCreateRequest,
+    EscrowRatingOut,
+    EscrowRatingStateOut,
+)
 from app.schemas.escrow import (
     BalanceOut,
     CancelOut,
@@ -246,6 +251,28 @@ def create_dispute_upload_url(
         actor_is_admin,
     )
     return DisputeUploadUrlOut(upload_url=upload_url)
+
+
+@router.get("/public/{public_id}/ratings", response_model=EscrowRatingStateOut)
+def get_rating_state(
+    public_id: str,
+    actor_user_id: str = Depends(get_actor_user_id),
+):
+    return escrow_service.get_rating_state_by_public_id(public_id, actor_user_id)
+
+
+@router.post("/public/{public_id}/ratings", response_model=EscrowRatingOut)
+def submit_rating(
+    public_id: str,
+    data: EscrowRatingCreateRequest,
+    actor_user_id: str = Depends(get_actor_user_id),
+):
+    return escrow_service.submit_rating_by_public_id(
+        public_id,
+        actor_user_id,
+        data.score,
+        data.comment,
+    )
 
 
 @router.post("/public/{public_id}/release", response_model=ReleaseOut)

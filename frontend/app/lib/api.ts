@@ -16,6 +16,9 @@ import type {
   DisputeMessage,
   DisputeMessageCreatePayload,
   DisputeUploadUrlResponse,
+  EscrowRating,
+  EscrowRatingCreatePayload,
+  EscrowRatingStateResponse,
   EscrowTransaction,
   TransactionStatusResponse,
 } from "./types";
@@ -369,6 +372,24 @@ export async function createDisputeUploadUrl(
       method: "POST",
     }
   );
+}
+
+export async function getEscrowRatingState(
+  publicId: string
+): Promise<EscrowRatingStateResponse> {
+  return request<EscrowRatingStateResponse>(
+    `/api/v1/escrows/public/${publicId}/ratings`
+  );
+}
+
+export async function submitEscrowRating(
+  publicId: string,
+  payload: EscrowRatingCreatePayload
+): Promise<EscrowRating> {
+  return request<EscrowRating>(`/api/v1/escrows/public/${publicId}/ratings`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function getEscrowTransactions(
