@@ -7,7 +7,7 @@ export default async function Home() {
   const { userId } = await auth();
 
   if (userId) {
-    redirect("/dashboard");
+    redirect("/");
   }
 
   return (
@@ -34,7 +34,7 @@ export default async function Home() {
 
       {/* Right Side */}
       <section className="md:basis-2/5 flex-1 flex flex-col justify-center items-center bg-white p-10 shadow-lg">
-        <SignIn routing="hash" forceRedirectUrl="/dashboard" />
+        <SignIn routing="hash" forceRedirectUrl="/" />
       </section>
     </main>
   );
