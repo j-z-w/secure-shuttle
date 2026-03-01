@@ -42,6 +42,90 @@ export default function Home() {
           }}
         />
 
+        {/* Top-right buttons */}
+        <div
+          style={{
+            position: "absolute",
+            top: "1.5rem",
+            right: "1.5rem",
+            zIndex: 2,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+          }}
+        >
+          {!user && (
+            <a
+              href="/signin"
+              style={{
+                padding: "0.5rem 1.25rem",
+                background: "#0070f3",
+                color: "#fff",
+                borderRadius: "6px",
+                textDecoration: "none",
+                fontWeight: 600,
+                fontSize: "0.9rem",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
+              }}
+            >
+              Sign In
+            </a>
+          )}
+
+          <a
+            href="/newEscrow"
+            style={{
+              padding: "0.5rem 1.25rem",
+              background: "#0070f3",
+              color: "#fff",
+              borderRadius: "6px",
+              textDecoration: "none",
+              fontWeight: 600,
+              fontSize: "0.9rem",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
+            }}
+          >
+            Create New Escrow
+          </a>
+
+          {user?.publicMetadata?.role === "admin" && (
+            <a
+              href="/dashboard"
+              style={{
+                padding: "0.5rem 1.25rem",
+                background: "#0070f3",
+                color: "#fff",
+                borderRadius: "6px",
+                textDecoration: "none",
+                fontWeight: 600,
+                fontSize: "0.9rem",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
+              }}
+            >
+              Dashboard
+            </a>
+          )}
+
+          <SignOutButton>
+            <button
+              className="cursor-pointer"
+              style={{
+                padding: "0.5rem 1.25rem",
+                background: "#0070f3",
+                color: "#fff",
+                borderRadius: "6px",
+                textDecoration: "none",
+                fontWeight: 600,
+                fontSize: "0.9rem",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
+              }}
+            >
+              Log Out
+            </button>
+          </SignOutButton>
+        </div>
+
+        {/* Centered logo + description */}
         <div
           style={{
             position: "relative",
@@ -74,82 +158,6 @@ export default function Home() {
             Description description description description description
             description description
           </p>
-          {!user && (
-            <a
-              href="/signin"
-              style={{
-                padding: "0.75rem 2rem",
-                background: "#0070f3",
-                color: "#fff",
-                borderRadius: "6px",
-                textDecoration: "none",
-                fontWeight: 600,
-                fontSize: "1rem",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
-                marginBottom: "1rem",
-                display: "inline-block",
-              }}
-            >
-              Sign In
-            </a>
-          )}
-
-          <a
-            href="/newEscrow"
-            style={{
-              padding: "0.75rem 2rem",
-              background: "#0070f3",
-              color: "#fff",
-              borderRadius: "6px",
-              textDecoration: "none",
-              fontWeight: 600,
-              fontSize: "1rem",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
-              marginBottom: "1rem",
-              display: "inline-block",
-            }}
-          >
-            Create New Escrow
-          </a>
-
-          {user?.publicMetadata?.role === "admin" && (
-            <a
-              href="/dashboard"
-              style={{
-                padding: "0.75rem 2rem",
-                background: "#0070f3",
-                color: "#fff",
-                borderRadius: "6px",
-                textDecoration: "none",
-                fontWeight: 600,
-                fontSize: "1rem",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
-                marginBottom: "1rem",
-                display: "inline-block",
-              }}
-            >
-              Dashboard
-            </a>
-          )}
-
-          <SignOutButton>
-          <button className = "cursor-pointer" 
-              style={{
-                padding: "0.75rem 2rem",
-                background: "#0070f3",
-                color: "#fff",
-                borderRadius: "6px",
-                textDecoration: "none",
-                fontWeight: 600,
-                fontSize: "1rem",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
-                marginBottom: "1rem",
-                display: "inline-block",
-              }}
-            >
-              Log Out
-            </button>
-          </SignOutButton>
         </div>
       </div>
 
