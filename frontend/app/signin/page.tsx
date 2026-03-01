@@ -1,8 +1,15 @@
 import Image from "next/image";
-import { ClerkProvider,
-  SignIn,} from '@clerk/nextjs'
+import { SignIn } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 
-export default function Home() {
+export default async function Home() {
+  const { userId } = await auth();
+
+  if (userId) {
+    redirect("/dashboard");
+  }
+
   return (
     <main className="min-h-screen flex flex-col md:flex-row">
       {/* Left Side */}
@@ -26,11 +33,9 @@ export default function Home() {
       </section>
 
       {/* Right Side */}
-      <ClerkProvider>
       <section className="md:basis-2/5 flex-1 flex flex-col justify-center items-center bg-white p-10 shadow-lg">
-      <SignIn routing="hash"/>
+        <SignIn routing="hash" forceRedirectUrl="/dashboard" />
       </section>
-      </ClerkProvider>
     </main>
   );
 }

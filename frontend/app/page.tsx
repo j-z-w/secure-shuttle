@@ -74,23 +74,25 @@ export default function Home() {
             Description description description description description
             description description
           </p>
-          <a
-            href="/signin"
-            style={{
-              padding: "0.75rem 2rem",
-              background: "#0070f3",
-              color: "#fff",
-              borderRadius: "6px",
-              textDecoration: "none",
-              fontWeight: 600,
-              fontSize: "1rem",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
-              marginBottom: "1rem",
-              display: "inline-block",
-            }}
-          >
-            Sign In
-          </a>
+          {!user && (
+            <a
+              href="/signin"
+              style={{
+                padding: "0.75rem 2rem",
+                background: "#0070f3",
+                color: "#fff",
+                borderRadius: "6px",
+                textDecoration: "none",
+                fontWeight: 600,
+                fontSize: "1rem",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
+                marginBottom: "1rem",
+                display: "inline-block",
+              }}
+            >
+              Sign In
+            </a>
+          )}
 
           <a
             href="/newEscrow"
@@ -110,7 +112,7 @@ export default function Home() {
             Create New Escrow
           </a>
 
-          {user?.publicMetadata?.role === "admin" && (
+          {user && (
             <a
               href="/dashboard"
               style={{
