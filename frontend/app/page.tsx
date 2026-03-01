@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useUser, SignOutButton } from "@clerk/nextjs";
+import ZigZag from "./instructions";
 
 export default function Home() {
   const { user } = useUser();
@@ -159,8 +160,12 @@ export default function Home() {
           backgroundImage: "url('/backgroundLower.webp')",
           backgroundSize: "cover",
           backgroundPosition: "center",
+
         }}
       >
+        <div className="absolute inset-0 overflow-y-auto">
+          <ZigZag />
+        </div>
       </section>
     </main>
   );
