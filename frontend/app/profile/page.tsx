@@ -1,5 +1,6 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import BackButton from "@/app/components/BackButton";
 
 export default async function ProfilePage() {
   const { userId } = await auth();
@@ -12,6 +13,10 @@ export default async function ProfilePage() {
 
   return (
     <main className="min-h-screen bg-neutral-950 text-white px-6 py-24">
+      <div className="max-w-2xl mx-auto mb-4">
+        <BackButton fallbackHref="/dashboard" />
+      </div>
+
       <div className="max-w-2xl mx-auto rounded-xl border border-neutral-800 bg-neutral-900 p-8 shadow-lg">
         <h1 className="text-3xl font-semibold mb-6">Profile</h1>
 

@@ -55,9 +55,7 @@ export default function Home() {
           }}
         >
           {!user && (
-            <a
-              href="/signin"
-            >
+            <a href="/signin">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/sign-in.svg"
@@ -67,9 +65,7 @@ export default function Home() {
             </a>
           )}
 
-          <a
-            href="/newEscrow"
-          >
+          <a href="/newEscrow">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/create-new-escrow.svg"
@@ -79,9 +75,7 @@ export default function Home() {
           </a>
 
           {user?.publicMetadata?.role === "admin" && (
-            <a
-              href="/dashboard"
-            >
+            <a href="/dashboard">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/dashboard.svg"
@@ -92,7 +86,10 @@ export default function Home() {
           )}
 
           <SignOutButton>
-            <button className="cursor-pointer" style={{ background: "none", border: "none", padding: 0 }}>
+            <button
+              className="cursor-pointer"
+              style={{ background: "none", border: "none", padding: 0 }}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/log_out.webp"

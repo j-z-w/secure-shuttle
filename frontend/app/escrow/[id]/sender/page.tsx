@@ -74,6 +74,7 @@ export default function SenderEscrowPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [lastScanAt, setLastScanAt] = useState<string | null>(null);
 
   const [joinToken, setJoinToken] = useState("");
@@ -154,11 +155,11 @@ export default function SenderEscrowPage() {
       scanInFlightRef.current = true;
       if (manual) setScanLoading(true);
       try {
-        const data = await fetchEscrowCore();
-        setEscrow(data);
-        await fetchBalanceAndTransactions(data.id);
-        setLastScanAt(new Date().toISOString());
-        if (manual) setActionError(null);
+      const data = await fetchEscrowCore();
+      setEscrow(data);
+      await fetchBalanceAndTransactions(data.id);
+      setLastScanAt(new Date().toISOString());
+      if (manual) setActionError(null);
       } catch (err) {
         if (manual) setActionError(err instanceof Error ? err.message : "Chain scan failed");
       } finally {
@@ -192,6 +193,7 @@ export default function SenderEscrowPage() {
   const withAction = useCallback(async (name: string, fn: () => Promise<void>) => {
     setActionLoading(name);
     setActionError(null);
+    setActionNotice(null);
     try {
       await fn();
     } catch (err) {
@@ -319,6 +321,7 @@ export default function SenderEscrowPage() {
     }
     await withAction("release", async () => {
       await releaseFundsByPublicId(publicId);
+      setActionNotice("Release submitted.");
       void scanChain(false);
     });
   }
@@ -336,6 +339,7 @@ export default function SenderEscrowPage() {
         reason: disputeReason.trim() || undefined,
       });
       setEscrow(data);
+      setActionNotice("Dispute opened.");
       void scanChain(false);
     });
   }
@@ -356,6 +360,12 @@ export default function SenderEscrowPage() {
         {(error || actionError) && (
           <div className="bg-red-950/40 border border-red-800/30 rounded-lg p-4 mb-4">
             <p className="text-sm text-red-300">{actionError ?? error}</p>
+          </div>
+        )}
+
+        {actionNotice && (
+          <div className="bg-emerald-950/30 border border-emerald-800/30 rounded-lg p-4 mb-4">
+            <p className="text-sm text-emerald-300">{actionNotice}</p>
           </div>
         )}
 
@@ -525,6 +535,9 @@ export default function SenderEscrowPage() {
             >
               {actionLoading === "dispute" ? "Submitting..." : "Open Dispute"}
             </button>
+            <p className="text-xs text-neutral-500 mt-4">
+              Escrow cancellation and settlement controls are handled on the admin route hub.
+            </p>
           </section>
         </div>
 

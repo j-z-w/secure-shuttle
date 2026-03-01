@@ -3,13 +3,17 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { listEscrows } from "@/app/lib/api";
 import type { Escrow, EscrowStatus } from "@/app/lib/types";
 import EscrowCard from "@/app/components/EscrowCard";
+import BackButton from "@/app/components/BackButton";
 
 const TABS: { label: string; value: EscrowStatus | "all" }[] = [
   { label: "All", value: "all" },
+  { label: "Open", value: "open" },
   { label: "Roles Pending", value: "roles_pending" },
+  { label: "Roles Claimed", value: "roles_claimed" },
   { label: "Funded", value: "funded" },
   { label: "Service Complete", value: "service_complete" },
   { label: "Released", value: "released" },
@@ -18,14 +22,23 @@ const TABS: { label: string; value: EscrowStatus | "all" }[] = [
 ];
 
 export default function EscrowsPage() {
+  const searchParams = useSearchParams();
+  const statusParam = searchParams.get("status");
+  const scopeParam = searchParams.get("scope");
+  const initialTab =
+    statusParam && TABS.some((tab) => tab.value === statusParam)
+      ? (statusParam as EscrowStatus)
+      : "all";
+  const scope = scopeParam === "all" ? "all" : "mine";
+
   const [escrows, setEscrows] = useState<Escrow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<EscrowStatus | "all">("all");
+  const [activeTab, setActiveTab] = useState<EscrowStatus | "all">(initialTab);
 
   useEffect(() => {
     const status = activeTab === "all" ? undefined : activeTab;
-    listEscrows(status)
+    listEscrows(status, scope)
       .then((res) => {
         setEscrows(res.items);
         setTotal(res.total);
@@ -35,11 +48,15 @@ export default function EscrowsPage() {
         setTotal(0);
       })
       .finally(() => setLoading(false));
-  }, [activeTab]);
+  }, [activeTab, scope]);
 
   return (
     <div className="min-h-screen bg-[#1d1d1d] text-white">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+        <div className="mb-6">
+          <BackButton fallbackHref="/dashboard" />
+        </div>
+
         {/* Logo */}
         <div className="flex justify-center mb-8">
           <Image
@@ -59,6 +76,9 @@ export default function EscrowsPage() {
             </h1>
             <p className="text-sm text-neutral-500 mt-1">
               {total} escrow{total !== 1 ? "s" : ""}
+            </p>
+            <p className="text-xs text-neutral-600 mt-1">
+              Scope: {scope === "all" ? "All escrows" : "My escrows"}
             </p>
           </div>
           <Link

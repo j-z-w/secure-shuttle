@@ -330,35 +330,68 @@ def cancel_escrow(
     actor_user_id: str,
     return_funds: bool = False,
     refund_address: Optional[str] = None,
+    settlement: str = "none",
+    payout_address: Optional[str] = None,
+    actor_is_admin: bool = False,
 ) -> tuple[dict, Optional[str]]:
     escrow = get_escrow(escrow_id)
-    _require_sender_or_creator(escrow, actor_user_id)
+    _require_sender_or_creator(escrow, actor_user_id, actor_is_admin)
 
     if escrow["status"] == "cancelled":
         raise EscrowCancelledError(escrow_id)
     if escrow["status"] == "released":
         raise InvalidEscrowStateError("Released escrow cannot be cancelled.")
 
-    refund_sig = None
-    if return_funds:
-        if not refund_address:
-            raise InvalidAddressError("refund_address is required when return_funds=true")
+    # Backward compatibility with existing query params.
+    if return_funds and settlement == "none":
+        settlement = "refund_sender"
+    if refund_address and not payout_address:
+        payout_address = refund_address
 
+    if settlement not in {"none", "refund_sender", "pay_recipient"}:
+        raise InvalidEscrowStateError("Invalid settlement mode.")
+
+    target_address: Optional[str] = None
+    tx_type = "refund"
+    pending_status = "refund_pending"
+    final_status = "cancelled"
+    intent_prefix = "refund"
+
+    if settlement == "refund_sender":
+        target_address = payout_address or escrow.get("sender_address")
+        tx_type = "refund"
+        pending_status = "refund_pending"
+        final_status = "cancelled"
+        intent_prefix = "refund"
+        if not target_address:
+            raise InvalidAddressError("Sender address is not set for refund.")
+    elif settlement == "pay_recipient":
+        target_address = payout_address or escrow.get("recipient_address")
+        tx_type = "release"
+        pending_status = "release_pending"
+        final_status = "released"
+        intent_prefix = "release"
+        if not target_address:
+            raise InvalidAddressError("Recipient payout address is not set.")
+
+    refund_sig = None
+    if target_address:
+        solana_service.validate_address(target_address)
         balance = solana_service.get_balance(escrow["public_key"])
         fee = solana_service.TRANSFER_FEE_LAMPORTS
         if balance > fee:
             refund_amount = balance - fee
             intent_hash = _build_intent_hash(
                 escrow_id=escrow["id"],
-                recipient=refund_address,
+                recipient=target_address,
                 amount_lamports=refund_amount,
-                idempotency_key=f"refund:{escrow['finalize_nonce'] + 1}",
+                idempotency_key=f"{intent_prefix}:{escrow['finalize_nonce'] + 1}",
             )
 
             store.update_escrow(
                 escrow_id,
                 {
-                    "status": "refund_pending",
+                    "status": pending_status,
                     "last_intent_hash": intent_hash,
                     "failure_reason": None,
                 },
@@ -367,7 +400,7 @@ def cancel_escrow(
             try:
                 transfer_result = solana_service.send_transfer_with_confirmation(
                     escrow["secret_key"],
-                    refund_address,
+                    target_address,
                     refund_amount,
                 )
             except Exception as exc:
@@ -385,10 +418,10 @@ def cancel_escrow(
                 TransactionCreate(
                     escrow_id=escrow["id"],
                     signature=refund_sig,
-                    tx_type="refund",
+                    tx_type=tx_type,
                     amount_lamports=refund_amount,
                     from_address=escrow["public_key"],
-                    to_address=refund_address,
+                    to_address=target_address,
                     status=transfer_result["status"],
                     intent_hash=intent_hash,
                     commitment_target=transfer_result["commitment_target"],
@@ -407,11 +440,32 @@ def cancel_escrow(
     result = store.update_escrow(
         escrow_id,
         {
-            "status": "cancelled",
+            "status": final_status if (refund_sig or settlement == "none") else "cancelled",
             "failure_reason": None,
         },
     )
     return result or escrow, refund_sig
+
+
+def cancel_escrow_by_public_id(
+    public_id: str,
+    actor_user_id: str,
+    return_funds: bool = False,
+    refund_address: Optional[str] = None,
+    settlement: str = "none",
+    payout_address: Optional[str] = None,
+    actor_is_admin: bool = False,
+) -> tuple[dict, Optional[str]]:
+    escrow = _get_escrow_by_public_id(public_id)
+    return cancel_escrow(
+        escrow_id=escrow["id"],
+        actor_user_id=actor_user_id,
+        return_funds=return_funds,
+        refund_address=refund_address,
+        settlement=settlement,
+        payout_address=payout_address,
+        actor_is_admin=actor_is_admin,
+    )
 
 
 def release_funds(
@@ -782,7 +836,13 @@ def _require_recipient(escrow: dict, actor_user_id: str) -> None:
         raise ForbiddenActionError("Only the recipient can perform this action.")
 
 
-def _require_sender_or_creator(escrow: dict, actor_user_id: str) -> None:
+def _require_sender_or_creator(
+    escrow: dict,
+    actor_user_id: str,
+    actor_is_admin: bool = False,
+) -> None:
+    if actor_is_admin:
+        return
     if actor_user_id not in {escrow.get("payer_user_id"), escrow.get("creator_user_id")}:
         raise ForbiddenActionError("Only the sender or creator can perform this action.")
 

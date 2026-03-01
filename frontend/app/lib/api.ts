@@ -20,6 +20,9 @@ import type {
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 type ClerkUser = {
   id?: string | null;
+  publicMetadata?: {
+    role?: unknown;
+  };
 };
 
 type ClerkSession = {
@@ -53,6 +56,10 @@ async function authHeaders(): Promise<Record<string, string>> {
   const userId = clerk?.user?.id?.trim();
   if (userId) {
     headers["X-User-Id"] = userId;
+  }
+  const role = clerk?.user?.publicMetadata?.role;
+  if (typeof role === "string" && role.trim()) {
+    headers["X-User-Role"] = role.trim();
   }
 
   if (clerk?.session?.getToken) {
@@ -154,14 +161,28 @@ export async function releaseFundsByPublicId(
 
 export async function cancelEscrow(
   id: string,
-  returnFunds = false,
-  refundAddress?: string
+  settlement: "none" | "refund_sender" | "pay_recipient" = "none",
+  payoutAddress?: string
 ): Promise<CancelResponse> {
   const params = new URLSearchParams();
-  if (returnFunds) params.set("return_funds", "true");
-  if (refundAddress) params.set("refund_address", refundAddress);
+  params.set("settlement", settlement);
+  if (payoutAddress) params.set("payout_address", payoutAddress);
   const query = params.toString() ? `?${params}` : "";
   return request<CancelResponse>(`/api/v1/escrows/${id}${query}`, {
+    method: "DELETE",
+  });
+}
+
+export async function cancelEscrowByPublicId(
+  publicId: string,
+  settlement: "none" | "refund_sender" | "pay_recipient" = "none",
+  payoutAddress?: string
+): Promise<CancelResponse> {
+  const params = new URLSearchParams();
+  params.set("settlement", settlement);
+  if (payoutAddress) params.set("payout_address", payoutAddress);
+  const query = params.toString() ? `?${params}` : "";
+  return request<CancelResponse>(`/api/v1/escrows/public/${publicId}/cancel${query}`, {
     method: "DELETE",
   });
 }
