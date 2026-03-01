@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import logging
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,6 +19,8 @@ from app.exceptions import (
 )
 from app.routers import escrows, transactions
 from app.services import solana_service
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -94,7 +97,9 @@ async def invite_token_handler(request: Request, exc: InviteTokenError):
 
 @app.exception_handler(RuntimeError)
 async def runtime_error_handler(request: Request, exc: RuntimeError):
-    return JSONResponse(status_code=500, content={"detail": str(exc)})
+    logger.error("Unhandled runtime error: %s", exc)
+    detail = str(exc) if settings.debug else "Internal server error."
+    return JSONResponse(status_code=500, content={"detail": detail})
 
 
 # Health check

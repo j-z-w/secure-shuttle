@@ -1,8 +1,10 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { assertInternalKey } from "./_internalAuth";
 
 export const insert = mutation({
   args: {
+    internal_key: v.string(),
     public_id: v.string(),
     public_key: v.string(),
     secret_key: v.string(),
@@ -23,22 +25,26 @@ export const insert = mutation({
     failure_reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    assertInternalKey(args.internal_key);
+    const { internal_key: _internalKey, ...escrow } = args;
     const now = Date.now();
-    const id = await ctx.db.insert("escrows", { ...args, updated_at: now });
+    const id = await ctx.db.insert("escrows", { ...escrow, updated_at: now });
     return await ctx.db.get(id);
   },
 });
-//glorg
+
 export const get = query({
-  args: { id: v.id("escrows") },
+  args: { internal_key: v.string(), id: v.id("escrows") },
   handler: async (ctx, args) => {
+    assertInternalKey(args.internal_key);
     return await ctx.db.get(args.id);
   },
 });
 
 export const getByPublicId = query({
-  args: { public_id: v.string() },
+  args: { internal_key: v.string(), public_id: v.string() },
   handler: async (ctx, args) => {
+    assertInternalKey(args.internal_key);
     return await ctx.db
       .query("escrows")
       .withIndex("by_public_id", (q) => q.eq("public_id", args.public_id))
@@ -47,8 +53,9 @@ export const getByPublicId = query({
 });
 
 export const getByInviteHash = query({
-  args: { invite_token_hash: v.string() },
+  args: { internal_key: v.string(), invite_token_hash: v.string() },
   handler: async (ctx, args) => {
+    assertInternalKey(args.internal_key);
     return await ctx.db
       .query("escrows")
       .withIndex("by_invite_token_hash", (q) =>
@@ -60,6 +67,7 @@ export const getByInviteHash = query({
 
 export const list = query({
   args: {
+    internal_key: v.string(),
     status_filter: v.optional(v.string()),
     limit: v.number(),
     offset: v.number(),
@@ -67,6 +75,7 @@ export const list = query({
     mine_only: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    assertInternalKey(args.internal_key);
     let results;
 
     if (args.status_filter) {
@@ -96,6 +105,7 @@ export const list = query({
 
 export const update = mutation({
   args: {
+    internal_key: v.string(),
     id: v.id("escrows"),
     updates: v.object({
       label: v.optional(v.string()),
@@ -126,6 +136,7 @@ export const update = mutation({
     }),
   },
   handler: async (ctx, args) => {
+    assertInternalKey(args.internal_key);
     const now = Date.now();
     await ctx.db.patch(args.id, { ...args.updates, updated_at: now });
     return await ctx.db.get(args.id);

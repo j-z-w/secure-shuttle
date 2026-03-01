@@ -14,6 +14,7 @@ from app.exceptions import (
     InvalidEscrowStateError,
     InviteTokenError,
 )
+from app.secret_crypto import decrypt_escrow_secret, encrypt_escrow_secret
 from app.schemas.escrow import EscrowCreate, EscrowUpdate
 from app.schemas.transaction import TransactionCreate
 from app.services import solana_service
@@ -23,6 +24,7 @@ TERMINAL_ESCROW_STATES = {"released", "cancelled"}
 
 def create_escrow(data: EscrowCreate, actor_user_id: str) -> dict:
     public_key, secret_key = solana_service.generate_keypair()
+    encrypted_secret_key = encrypt_escrow_secret(secret_key)
     join_token = secrets.token_urlsafe(32)
     join_token_hash = _hash_token(join_token)
     join_expires_at = datetime.now(timezone.utc) + timedelta(
@@ -32,7 +34,7 @@ def create_escrow(data: EscrowCreate, actor_user_id: str) -> dict:
     escrow = store.insert_escrow(
         {
             "public_key": public_key,
-            "secret_key": secret_key,
+            "secret_key": encrypted_secret_key,
             "label": data.label,
             "recipient_address": data.recipient_address,
             "sender_address": data.sender_address,
@@ -44,7 +46,7 @@ def create_escrow(data: EscrowCreate, actor_user_id: str) -> dict:
     )
     escrow["join_token"] = join_token
     escrow["claim_link"] = (
-        f"?public_id={escrow['public_id']}&join_token={join_token}"
+        f"?public_id={escrow['public_id']}#join_token={join_token}"
     )
     return escrow
 
@@ -265,6 +267,61 @@ def open_dispute(
     return updated
 
 
+def list_dispute_messages_by_public_id(
+    public_id: str,
+    actor_user_id: str,
+    actor_is_admin: bool = False,
+) -> list[dict]:
+    escrow = _get_escrow_by_public_id(public_id)
+    _require_dispute_chat_access(escrow, actor_user_id, actor_is_admin)
+    messages = store.list_dispute_messages(escrow["id"])
+    for message in messages:
+        sender_user_id = message.get("sender_user_id")
+        if sender_user_id == escrow.get("payer_user_id"):
+            message["sender_role"] = "sender"
+        elif sender_user_id == escrow.get("payee_user_id"):
+            message["sender_role"] = "recipient"
+        elif message.get("sender_role") not in {"admin", "sender", "recipient"}:
+            message["sender_role"] = "participant"
+    return messages
+
+
+def create_dispute_message_by_public_id(
+    public_id: str,
+    actor_user_id: str,
+    body: Optional[str],
+    attachments: Optional[list[dict]] = None,
+    actor_is_admin: bool = False,
+) -> dict:
+    escrow = _get_escrow_by_public_id(public_id)
+    _require_dispute_chat_access(escrow, actor_user_id, actor_is_admin)
+
+    clean_body = body.strip() if body else None
+    clean_attachments = attachments or []
+    if not clean_body and not clean_attachments:
+        raise InvalidEscrowStateError("Message body or attachments are required.")
+
+    return store.insert_dispute_message(
+        {
+            "escrow_id": escrow["id"],
+            "sender_user_id": actor_user_id,
+            "sender_role": _chat_sender_role(escrow, actor_user_id, actor_is_admin),
+            "body": clean_body,
+            "attachments": clean_attachments,
+        }
+    )
+
+
+def create_dispute_upload_url_by_public_id(
+    public_id: str,
+    actor_user_id: str,
+    actor_is_admin: bool = False,
+) -> str:
+    escrow = _get_escrow_by_public_id(public_id)
+    _require_dispute_chat_access(escrow, actor_user_id, actor_is_admin)
+    return store.generate_dispute_upload_url()
+
+
 def create_invite(public_id: str, actor_user_id: str) -> dict:
     escrow = _get_escrow_by_public_id_for_write(public_id, actor_user_id)
     _ensure_not_terminal(escrow)
@@ -399,7 +456,7 @@ def cancel_escrow(
 
             try:
                 transfer_result = solana_service.send_transfer_with_confirmation(
-                    escrow["secret_key"],
+                    decrypt_escrow_secret(escrow["secret_key"]),
                     target_address,
                     refund_amount,
                 )
@@ -568,7 +625,7 @@ def release_funds(
 
     try:
         transfer_result = solana_service.send_transfer_with_confirmation(
-            escrow["secret_key"],
+            decrypt_escrow_secret(escrow["secret_key"]),
             recipient,
             amount,
         )
@@ -845,6 +902,34 @@ def _require_sender_or_creator(
         return
     if actor_user_id not in {escrow.get("payer_user_id"), escrow.get("creator_user_id")}:
         raise ForbiddenActionError("Only the sender or creator can perform this action.")
+
+
+def _require_dispute_chat_access(
+    escrow: dict,
+    actor_user_id: str,
+    actor_is_admin: bool = False,
+) -> None:
+    if not actor_is_admin and actor_user_id not in {
+        escrow.get("payer_user_id"),
+        escrow.get("payee_user_id"),
+    }:
+        raise ForbiddenActionError(
+            "Only the sender, recipient, or admin can access dispute chat."
+        )
+    if escrow.get("status") != "disputed" and not escrow.get("disputed_at"):
+        raise InvalidEscrowStateError(
+            "Dispute chat is available only after a dispute is opened."
+        )
+
+
+def _chat_sender_role(escrow: dict, actor_user_id: str, actor_is_admin: bool) -> str:
+    if escrow.get("payer_user_id") == actor_user_id:
+        return "sender"
+    if escrow.get("payee_user_id") == actor_user_id:
+        return "recipient"
+    if actor_is_admin:
+        return "admin"
+    return "participant"
 
 
 def _ensure_not_terminal(escrow: dict) -> None:

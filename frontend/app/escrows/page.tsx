@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import { listEscrows } from "@/app/lib/api";
 import type { Escrow, EscrowStatus } from "@/app/lib/types";
 import EscrowCard from "@/app/components/EscrowCard";
@@ -23,20 +24,29 @@ const TABS: { label: string; value: EscrowStatus | "all" }[] = [
 
 export default function EscrowsPage() {
   const searchParams = useSearchParams();
+  const { isLoaded, isSignedIn, user } = useUser();
   const statusParam = searchParams.get("status");
   const scopeParam = searchParams.get("scope");
   const initialTab =
     statusParam && TABS.some((tab) => tab.value === statusParam)
       ? (statusParam as EscrowStatus)
       : "all";
-  const scope = scopeParam === "all" ? "all" : "mine";
+  const requestedScope = scopeParam === "all" ? "all" : "mine";
+  const userRole =
+    typeof user?.publicMetadata?.role === "string"
+      ? user.publicMetadata.role.toLowerCase()
+      : "";
+  const isAdmin = userRole === "admin";
+  const scope = requestedScope === "all" && isAdmin ? "all" : "mine";
 
   const [escrows, setEscrows] = useState<Escrow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<EscrowStatus | "all">(initialTab);
+  const unauthenticated = isLoaded && !isSignedIn;
 
   useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
     const status = activeTab === "all" ? undefined : activeTab;
     listEscrows(status, scope)
       .then((res) => {
@@ -48,7 +58,7 @@ export default function EscrowsPage() {
         setTotal(0);
       })
       .finally(() => setLoading(false));
-  }, [activeTab, scope]);
+  }, [activeTab, isLoaded, isSignedIn, scope]);
 
   return (
     <div className="min-h-screen bg-[#1d1d1d] text-white">
@@ -80,6 +90,11 @@ export default function EscrowsPage() {
             <p className="text-xs text-neutral-600 mt-1">
               Scope: {scope === "all" ? "All escrows" : "My escrows"}
             </p>
+            {requestedScope === "all" && !isAdmin ? (
+              <p className="text-xs text-amber-400 mt-1">
+                Admin permissions required for all-escrow scope.
+              </p>
+            ) : null}
           </div>
           <Link
             href="/pay"
@@ -110,7 +125,11 @@ export default function EscrowsPage() {
         </div>
 
         {/* Content */}
-        {loading ? (
+        {unauthenticated ? (
+          <div className="text-center py-20 text-neutral-500">
+            Sign in to view your escrows.
+          </div>
+        ) : loading ? (
           <div className="flex items-center justify-center py-20 text-neutral-400">
             <svg
               className="size-5 animate-spin mr-3"

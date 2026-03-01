@@ -3,6 +3,12 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 
 from app.auth import get_actor_is_admin, get_actor_user_id
+from app.exceptions import ForbiddenActionError
+from app.schemas.chat import (
+    DisputeMessageCreate,
+    DisputeMessageOut,
+    DisputeUploadUrlOut,
+)
 from app.schemas.escrow import (
     BalanceOut,
     CancelOut,
@@ -40,7 +46,11 @@ def list_escrows(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     actor_user_id: str = Depends(get_actor_user_id),
+    actor_is_admin: bool = Depends(get_actor_is_admin),
 ):
+    if scope == "all" and not actor_is_admin:
+        raise ForbiddenActionError("Only admins can request all escrows.")
+
     mine_only = scope != "all"
     total, items = escrow_service.list_escrows(
         status,
@@ -193,6 +203,49 @@ def open_dispute(
     actor_user_id: str = Depends(get_actor_user_id),
 ):
     return escrow_service.open_dispute(public_id, actor_user_id, data.join_token, data.reason)
+
+
+@router.get("/public/{public_id}/dispute/messages", response_model=list[DisputeMessageOut])
+def list_dispute_messages(
+    public_id: str,
+    actor_user_id: str = Depends(get_actor_user_id),
+    actor_is_admin: bool = Depends(get_actor_is_admin),
+):
+    return escrow_service.list_dispute_messages_by_public_id(
+        public_id,
+        actor_user_id,
+        actor_is_admin,
+    )
+
+
+@router.post("/public/{public_id}/dispute/messages", response_model=DisputeMessageOut)
+def create_dispute_message(
+    public_id: str,
+    data: DisputeMessageCreate,
+    actor_user_id: str = Depends(get_actor_user_id),
+    actor_is_admin: bool = Depends(get_actor_is_admin),
+):
+    return escrow_service.create_dispute_message_by_public_id(
+        public_id,
+        actor_user_id,
+        data.body,
+        [attachment.model_dump() for attachment in data.attachments],
+        actor_is_admin,
+    )
+
+
+@router.post("/public/{public_id}/dispute/upload-url", response_model=DisputeUploadUrlOut)
+def create_dispute_upload_url(
+    public_id: str,
+    actor_user_id: str = Depends(get_actor_user_id),
+    actor_is_admin: bool = Depends(get_actor_is_admin),
+):
+    upload_url = escrow_service.create_dispute_upload_url_by_public_id(
+        public_id,
+        actor_user_id,
+        actor_is_admin,
+    )
+    return DisputeUploadUrlOut(upload_url=upload_url)
 
 
 @router.post("/public/{public_id}/release", response_model=ReleaseOut)

@@ -1,8 +1,10 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { assertInternalKey } from "./_internalAuth";
 
 export const insert = mutation({
   args: {
+    internal_key: v.string(),
     escrow_id: v.id("escrows"),
     signature: v.string(),
     tx_type: v.string(),
@@ -18,14 +20,17 @@ export const insert = mutation({
     memo: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const id = await ctx.db.insert("transactions", args);
+    assertInternalKey(args.internal_key);
+    const { internal_key: _internalKey, ...transaction } = args;
+    const id = await ctx.db.insert("transactions", transaction);
     return await ctx.db.get(id);
   },
 });
 
 export const listByEscrow = query({
-  args: { escrow_id: v.id("escrows") },
+  args: { internal_key: v.string(), escrow_id: v.id("escrows") },
   handler: async (ctx, args) => {
+    assertInternalKey(args.internal_key);
     return await ctx.db
       .query("transactions")
       .withIndex("by_escrow_id", (q) => q.eq("escrow_id", args.escrow_id))
@@ -35,8 +40,9 @@ export const listByEscrow = query({
 });
 
 export const getBySignature = query({
-  args: { signature: v.string() },
+  args: { internal_key: v.string(), signature: v.string() },
   handler: async (ctx, args) => {
+    assertInternalKey(args.internal_key);
     return await ctx.db
       .query("transactions")
       .withIndex("by_signature", (q) => q.eq("signature", args.signature))
@@ -45,8 +51,9 @@ export const getBySignature = query({
 });
 
 export const updateStatus = mutation({
-  args: { signature: v.string(), status: v.string() },
+  args: { internal_key: v.string(), signature: v.string(), status: v.string() },
   handler: async (ctx, args) => {
+    assertInternalKey(args.internal_key);
     const tx = await ctx.db
       .query("transactions")
       .withIndex("by_signature", (q) => q.eq("signature", args.signature))
@@ -59,6 +66,7 @@ export const updateStatus = mutation({
 
 export const update = mutation({
   args: {
+    internal_key: v.string(),
     signature: v.string(),
     updates: v.object({
       tx_type: v.optional(v.string()),
@@ -75,6 +83,7 @@ export const update = mutation({
     }),
   },
   handler: async (ctx, args) => {
+    assertInternalKey(args.internal_key);
     const tx = await ctx.db
       .query("transactions")
       .withIndex("by_signature", (q) => q.eq("signature", args.signature))
