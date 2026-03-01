@@ -31,6 +31,7 @@ export default function ClaimRolePage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [showTechnicalIds, setShowTechnicalIds] = useState(false);
   const refreshInFlightRef = useRef(false);
+  const authRetryScheduledRef = useRef(false);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -79,7 +80,23 @@ export default function ClaimRolePage() {
       setEscrow(data.escrow);
       setStateError(null);
     } catch (err) {
-      setStateError(err instanceof Error ? err.message : "Failed to load claim state");
+      const message = err instanceof Error ? err.message : "Failed to load claim state";
+      const isAuthBootstrapRace =
+        silent && message.toLowerCase().includes("authentication required");
+
+      if (isAuthBootstrapRace) {
+        // On shared-link/new-tab loads Clerk user state can be ready before JWT minting.
+        // Treat this as transient and retry shortly without flashing a red banner.
+        if (!authRetryScheduledRef.current && document.visibilityState === "visible") {
+          authRetryScheduledRef.current = true;
+          window.setTimeout(() => {
+            authRetryScheduledRef.current = false;
+            void refreshClaimState(true);
+          }, 900);
+        }
+      } else {
+        setStateError(message);
+      }
     } finally {
       refreshInFlightRef.current = false;
       if (!silent) {
