@@ -1,6 +1,11 @@
+"use client";
+
 import Image from "next/image";
+import { useUser } from '@clerk/nextjs'
 //homepage
 export default function Home() {
+  const { user } = useUser();
+  console.log(user?.publicMetadata?.role)
   return (
     <main
       style={{
@@ -97,7 +102,8 @@ export default function Home() {
           Create New Escrow
         </a>
 
-        <a
+        {user?.publicMetadata?.role === "admin" && (
+          <a
           href="/dashboard"
           style={{
             padding: "0.75rem 2rem",
@@ -114,6 +120,7 @@ export default function Home() {
         >
           Dashboard
         </a>
+        )}
       </div>
     </main>
   );
