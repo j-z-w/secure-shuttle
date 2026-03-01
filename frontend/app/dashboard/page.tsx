@@ -35,6 +35,21 @@ function formatShort(value: string | null) {
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
 }
 
+function dateKey(input: string) {
+  const date = new Date(input);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate(),
+  ).padStart(2, "0")}`;
+}
+
+function dateLabelFromKey(key: string) {
+  const [y, m, d] = key.split("-").map(Number);
+  if (!y || !m || !d) return key;
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 export default function Dashboard() {
   const { isLoaded, user } = useUser();
   const userRole =
@@ -112,6 +127,11 @@ export default function Dashboard() {
   );
   const recentEscrows = useMemo(() => escrows.slice(0, 5), [escrows]);
 
+  const openDisputes = useMemo(
+    () => escrows.filter((escrow) => escrow.status === "disputed").length,
+    [escrows],
+  );
+
   const pendingLamports = useMemo(
     () =>
       activeEscrows.reduce(
@@ -127,26 +147,120 @@ export default function Dashboard() {
         .reduce(
           (sum, escrow) => sum + (escrow.expected_amount_lamports ?? 0),
           0,
-        ),
+      ),
+    [escrows],
+  );
+  const processedLamports = useMemo(
+    () =>
+      escrows.reduce(
+        (sum, escrow) => sum + (escrow.expected_amount_lamports ?? 0),
+        0,
+      ),
     [escrows],
   );
 
-  const uniqueCounterparties = useMemo(() => {
+  const participantStats = useMemo(() => {
     const ids = new Set<string>();
+    const activity = new Map<string, number>();
     for (const escrow of escrows) {
-      if (escrow.payer_user_id) ids.add(escrow.payer_user_id);
-      if (escrow.payee_user_id) ids.add(escrow.payee_user_id);
+      if (escrow.payer_user_id) {
+        ids.add(escrow.payer_user_id);
+        activity.set(
+          escrow.payer_user_id,
+          (activity.get(escrow.payer_user_id) ?? 0) + 1,
+        );
+      }
+      if (escrow.payee_user_id) {
+        ids.add(escrow.payee_user_id);
+        activity.set(
+          escrow.payee_user_id,
+          (activity.get(escrow.payee_user_id) ?? 0) + 1,
+        );
+      }
     }
-    return ids.size;
+    const top = Array.from(activity.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+    const oneDeal = Array.from(activity.values()).filter((count) => count === 1)
+      .length;
+    const repeatDeal = Array.from(activity.values()).filter((count) => count > 1)
+      .length;
+
+    return {
+      unique: ids.size,
+      top,
+      oneDeal,
+      repeatDeal,
+    };
   }, [escrows]);
 
-  const disputeRate = escrows.length
-    ? (
-        (escrows.filter((escrow) => escrow.status === "disputed").length /
-          escrows.length) *
-        100
-      ).toFixed(1)
-    : "0.0";
+  const disputeRateValue = escrows.length
+    ? (openDisputes / escrows.length) * 100
+    : 0;
+  const disputeRate = disputeRateValue.toFixed(1);
+
+  const historySeries = useMemo(() => {
+    const days = 14;
+    const now = new Date();
+    const dayKeys: string[] = [];
+
+    for (let i = days - 1; i >= 0; i -= 1) {
+      const day = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() - i,
+      );
+      dayKeys.push(
+        `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(
+          day.getDate(),
+        ).padStart(2, "0")}`,
+      );
+    }
+
+    const volumeMap = new Map<string, number>(dayKeys.map((key) => [key, 0]));
+    const countMap = new Map<string, number>(dayKeys.map((key) => [key, 0]));
+
+    for (const escrow of escrows) {
+      const key = dateKey(escrow.updated_at || escrow.created_at);
+      if (!volumeMap.has(key)) continue;
+      volumeMap.set(
+        key,
+        (volumeMap.get(key) ?? 0) + lamportsToSol(escrow.expected_amount_lamports ?? 0),
+      );
+      countMap.set(key, (countMap.get(key) ?? 0) + 1);
+    }
+
+    const points = dayKeys.map((key) => ({
+      key,
+      label: dateLabelFromKey(key),
+      volume: volumeMap.get(key) ?? 0,
+      count: countMap.get(key) ?? 0,
+    }));
+
+    const maxVolume = Math.max(1, ...points.map((point) => point.volume));
+    const maxCount = Math.max(1, ...points.map((point) => point.count));
+
+    return { points, maxVolume, maxCount };
+  }, [escrows]);
+
+  const historyLinePath = useMemo(() => {
+    const { points, maxVolume } = historySeries;
+    if (points.length === 0) return "";
+    const width = 100;
+    const height = 100;
+    return points
+      .map((point, index) => {
+        const x = (index / Math.max(1, points.length - 1)) * width;
+        const y = height - (point.volume / maxVolume) * height;
+        return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
+      })
+      .join(" ");
+  }, [historySeries]);
+
+  const topCounterpartyMax = useMemo(() => {
+    if (participantStats.top.length === 0) return 1;
+    return Math.max(1, ...participantStats.top.map((entry) => entry[1]));
+  }, [participantStats.top]);
 
   return (
     <div className="relative min-h-screen text-white flex flex-col overflow-hidden">
@@ -344,62 +458,122 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
           <div className="bg-neutral-900/60 backdrop-blur rounded-2xl border border-neutral-800 p-4 flex flex-col">
             <div className="text-neutral-500 text-xs uppercase mb-1">
-              Available Balance
+              Total Escrows
             </div>
-            <div className="text-lg sm:text-2xl font-bold text-emerald-400 truncate">
-              {lamportsToSol(releasedLamports).toFixed(4)} SOL
+            <div className="text-lg sm:text-2xl font-bold text-white truncate">
+              {escrows.length}
             </div>
             <div className="text-neutral-600 text-xs mt-1">
-              Released escrows
+              All tracked deals
             </div>
           </div>
           <div className="bg-neutral-900/60 backdrop-blur rounded-2xl border border-neutral-800 p-4 flex flex-col">
             <div className="text-neutral-500 text-xs uppercase mb-1">
-              Pending in Escrow
+              In Progress
+            </div>
+            <div className="text-lg sm:text-2xl font-bold text-indigo-400 truncate">
+              {activeEscrows.length}
+            </div>
+            <div className="text-neutral-600 text-xs mt-1">
+              Open workflows
+            </div>
+          </div>
+          <div className="bg-neutral-900/60 backdrop-blur rounded-2xl border border-neutral-800 p-4 flex flex-col">
+            <div className="text-neutral-500 text-xs uppercase mb-1">
+              Open Disputes
+            </div>
+            <div className="text-lg sm:text-2xl font-bold text-amber-300 truncate">
+              {openDisputes}
+            </div>
+            <div className="text-neutral-600 text-xs mt-1">
+              Needs attention
+            </div>
+          </div>
+          <div className="bg-neutral-900/60 backdrop-blur rounded-2xl border border-neutral-800 p-4 flex flex-col">
+            <div className="text-neutral-500 text-xs uppercase mb-1">
+              Locked Volume
             </div>
             <div className="text-lg sm:text-2xl font-bold text-yellow-400 truncate">
               {lamportsToSol(pendingLamports).toFixed(4)} SOL
             </div>
             <div className="text-neutral-600 text-xs mt-1">
-              Awaiting release
+              Value currently active
             </div>
-          </div>
-          <div className="bg-neutral-900/60 backdrop-blur rounded-2xl border border-neutral-800 p-4 flex flex-col">
-            <div className="text-neutral-500 text-xs uppercase mb-1">
-              Active Escrows
-            </div>
-            <div className="text-lg sm:text-2xl font-bold text-indigo-400">
-              {activeEscrows.length}
-            </div>
-            <div className="text-neutral-600 text-xs mt-1">In progress</div>
-          </div>
-          <div className="bg-neutral-900/60 backdrop-blur rounded-2xl border border-neutral-800 p-4 flex flex-col">
-            <div className="text-neutral-500 text-xs uppercase mb-1">
-              Completed
-            </div>
-            <div className="text-lg sm:text-2xl font-bold text-white">
-              {
-                historyEscrows.filter((escrow) => escrow.status === "released")
-                  .length
-              }
-            </div>
-            <div className="text-neutral-600 text-xs mt-1">All time</div>
           </div>
         </div>
 
-        {/* Balance chart + Active escrows */}
+        {/* Activity chart + Active escrows */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
           <div className="bg-neutral-900/60 backdrop-blur rounded-2xl border border-neutral-800 p-5 md:col-span-2">
             <div className="font-semibold mb-1 text-white">
-              Transaction History
+              Escrow Activity (Last 14 Days)
             </div>
             <div className="text-xs text-neutral-500 mb-3">
-              Balance over time
+              Daily volume (line) and deal count (bars)
             </div>
-            <div className="h-36 flex items-center justify-center text-neutral-500 border border-dashed border-neutral-700 rounded-lg">
-              {loading
-                ? "Loading..."
-                : `${escrows.length} total escrows tracked in this account`}
+            <div className="h-44 border border-dashed border-neutral-700 rounded-lg p-3">
+              {loading ? (
+                <div className="h-full flex items-center justify-center text-neutral-500">
+                  Loading...
+                </div>
+              ) : historySeries.points.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-neutral-500">
+                  No chart data yet
+                </div>
+              ) : (
+                <div className="h-full flex flex-col justify-between">
+                  <div className="relative h-[112px] rounded-md bg-neutral-950/60 border border-neutral-800 px-2 pt-2 pb-1">
+                    <div className="absolute inset-x-2 bottom-1 h-[96px] flex items-end gap-1">
+                      {historySeries.points.map((point) => (
+                        <div key={point.key} className="flex-1 flex items-end">
+                          <div
+                            className="w-full bg-indigo-500/40 rounded-sm"
+                            style={{
+                              height: `${Math.max(
+                                6,
+                                (point.count / historySeries.maxCount) * 96,
+                              )}px`,
+                            }}
+                            title={`${point.label}: ${point.count} escrows`}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <svg
+                      viewBox="0 0 100 100"
+                      preserveAspectRatio="none"
+                      className="absolute inset-2 pointer-events-none"
+                    >
+                      <path
+                        d={historyLinePath}
+                        fill="none"
+                        stroke="rgb(52 211 153)"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-neutral-500 mt-2">
+                    <span>{historySeries.points[0]?.label}</span>
+                    <span>{historySeries.points[Math.floor(historySeries.points.length / 2)]?.label}</span>
+                    <span>{historySeries.points[historySeries.points.length - 1]?.label}</span>
+                  </div>
+                  <div className="text-[11px] text-neutral-500 mt-1">
+                    14d volume:{" "}
+                    <span className="text-neutral-300">
+                      {historySeries.points
+                        .reduce((sum, point) => sum + point.volume, 0)
+                        .toFixed(3)}{" "}
+                      SOL
+                    </span>{" "}
+                    · 14d deals:{" "}
+                    <span className="text-neutral-300">
+                      {historySeries.points.reduce((sum, point) => sum + point.count, 0)}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <div className="bg-neutral-900/60 backdrop-blur rounded-2xl border border-neutral-800 p-5">
@@ -448,8 +622,25 @@ export default function Dashboard() {
             <div className="text-xs text-neutral-500 mb-3">
               Escrows flagged for dispute
             </div>
-            <div className="h-28 flex items-center justify-center text-neutral-300 border border-dashed border-neutral-700 rounded-lg">
-              {disputeRate}% disputed
+            <div className="h-28 border border-dashed border-neutral-700 rounded-lg flex items-center justify-center gap-4 px-3">
+              <div
+                className="h-16 w-16 rounded-full"
+                style={{
+                  background: `conic-gradient(rgb(251 113 133) ${disputeRateValue * 3.6}deg, rgb(38 38 38) 0deg)`,
+                }}
+              >
+                <div className="h-full w-full rounded-full scale-[0.72] bg-neutral-900 border border-neutral-800 flex items-center justify-center text-[10px] text-neutral-300">
+                  {disputeRate}%
+                </div>
+              </div>
+              <div className="text-xs text-neutral-400 leading-5">
+                <div>
+                  Open disputes: <span className="text-neutral-200">{openDisputes}</span>
+                </div>
+                <div>
+                  Total escrows: <span className="text-neutral-200">{escrows.length}</span>
+                </div>
+              </div>
             </div>
           </div>
           <div className="bg-neutral-900/60 backdrop-blur rounded-2xl border border-neutral-800 p-5">
@@ -457,8 +648,42 @@ export default function Dashboard() {
             <div className="text-xs text-neutral-500 mb-3">
               Buyers & sellers by account
             </div>
-            <div className="h-28 flex items-center justify-center text-neutral-300 border border-dashed border-neutral-700 rounded-lg">
-              {uniqueCounterparties} unique users
+            <div className="h-28 border border-dashed border-neutral-700 rounded-lg p-2 overflow-y-auto">
+              {loading ? (
+                <div className="h-full flex items-center justify-center text-neutral-500 text-xs">
+                  Loading...
+                </div>
+              ) : participantStats.top.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-neutral-500 text-xs">
+                  No participant data
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {participantStats.top.map(([id, count]) => (
+                    <div key={id} className="space-y-1">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-neutral-300">{formatShort(id)}</span>
+                        <span className="text-neutral-500">{count}</span>
+                      </div>
+                      <div className="h-1.5 rounded bg-neutral-800">
+                        <div
+                          className="h-full rounded bg-cyan-400/70"
+                          style={{
+                            width: `${Math.max(
+                              12,
+                              (count / topCounterpartyMax) * 100,
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="text-[11px] text-neutral-500 mt-2">
+              {participantStats.unique} unique users · {participantStats.repeatDeal} repeat
+              participants
             </div>
           </div>
           <div className="bg-neutral-900/60 backdrop-blur rounded-2xl border border-neutral-800 p-5">
@@ -495,6 +720,19 @@ export default function Dashboard() {
               )}
             </div>
           </div>
+        </div>
+
+        <div className="mt-5 text-xs text-neutral-500">
+          Processed volume (all statuses):{" "}
+          <span className="text-neutral-300">
+            {lamportsToSol(processedLamports).toFixed(3)} SOL
+          </span>{" "}
+          · Released volume:{" "}
+          <span className="text-neutral-300">
+            {lamportsToSol(releasedLamports).toFixed(3)} SOL
+          </span>{" "}
+          · Terminal escrows:{" "}
+          <span className="text-neutral-300">{historyEscrows.length}</span>
         </div>
       </main>
     </div>
