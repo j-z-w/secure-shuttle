@@ -1,6 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import BackButton from "@/app/components/BackButton";
+import ProfileImageUpload from "@/app/components/ProfileImageUpload";
 
 export default async function ProfilePage() {
   const { userId } = await auth();
@@ -21,12 +22,7 @@ export default async function ProfilePage() {
         <h1 className="text-3xl font-semibold mb-6">Profile</h1>
 
         <div className="flex items-center gap-4 mb-6">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={user?.imageUrl ?? ""}
-            alt="Profile"
-            className="h-16 w-16 rounded-full object-cover bg-neutral-800"
-          />
+          <ProfileImageUpload currentImageUrl={user?.imageUrl ?? ""} />
           <div>
             <p className="text-lg font-medium">{user?.fullName ?? "User"}</p>
             <p className="text-neutral-400 text-sm">
