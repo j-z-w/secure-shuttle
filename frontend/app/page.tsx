@@ -31,7 +31,11 @@ export default function Home() {
                 className="hover:scale-105 transition-transform"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/sign-in.svg" alt="Sign In" className="h-8 sm:h-11 block" />
+                <img
+                  src="/sign-in.svg"
+                  alt="Sign In"
+                  className="h-8 sm:h-11 block"
+                />
               </a>
             )}
 
@@ -95,7 +99,7 @@ export default function Home() {
               SecureShuttle
             </h1>
             <p className="text-xl sm:text-2xl font-medium">
-              Peer-to-peer escrow,{" "}
+              Trade with confidence,{" "}
               <span className="bg-gradient-to-r from-indigo-400 via-cyan-400 to-emerald-400 bg-clip-text text-transparent">
                 powered by Solana
               </span>
@@ -103,9 +107,8 @@ export default function Home() {
           </div>
 
           <p className="text-neutral-400 text-base sm:text-lg max-w-xl leading-relaxed">
-            Stop sending money on faith. SecureShuttle holds payments in escrow
-            on-chain until both parties confirm — fast, transparent, and fully
-            protected.
+            SecureShuttle secures payments in on-chain escrow and releases them
+            only when both sides approve.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-6 mt-2">
