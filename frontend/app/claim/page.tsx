@@ -26,7 +26,9 @@ export default function ClaimRolePage() {
   const [escrow, setEscrow] = useState<Escrow | null>(null);
   const [loadingState, setLoadingState] = useState(false);
   const [stateError, setStateError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState<"sender" | "recipient" | null>(null);
+  const [actionLoading, setActionLoading] = useState<
+    "sender" | "recipient" | null
+  >(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showTechnicalIds, setShowTechnicalIds] = useState(false);
   const refreshInFlightRef = useRef(false);
@@ -44,7 +46,7 @@ export default function ClaimRolePage() {
       window.history.replaceState(
         null,
         "",
-        `${window.location.pathname}${window.location.search}`
+        `${window.location.pathname}${window.location.search}`,
       );
     }
   }, []);
@@ -67,42 +69,49 @@ export default function ClaimRolePage() {
     }
   }, [hashJoinToken, publicId, rawJoinToken, router, searchParamsString]);
 
-  const refreshClaimState = useCallback(async (silent = false) => {
-    if (!publicId || !joinToken || !isLoaded || !isSignedIn) return;
-    if (refreshInFlightRef.current) return;
-    refreshInFlightRef.current = true;
-    if (!silent) {
-      setLoadingState(true);
-    }
-    try {
-      const data = await syncFunding(publicId, { join_token: joinToken });
-      setEscrow(data.escrow);
-      setStateError(null);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load claim state";
-      const isAuthBootstrapRace =
-        silent && message.toLowerCase().includes("authentication required");
-
-      if (isAuthBootstrapRace) {
-        // On shared-link/new-tab loads Clerk user state can be ready before JWT minting.
-        // Treat this as transient and retry shortly without flashing a red banner.
-        if (!authRetryScheduledRef.current && document.visibilityState === "visible") {
-          authRetryScheduledRef.current = true;
-          window.setTimeout(() => {
-            authRetryScheduledRef.current = false;
-            void refreshClaimState(true);
-          }, 900);
-        }
-      } else {
-        setStateError(message);
-      }
-    } finally {
-      refreshInFlightRef.current = false;
+  const refreshClaimState = useCallback(
+    async (silent = false) => {
+      if (!publicId || !joinToken || !isLoaded || !isSignedIn) return;
+      if (refreshInFlightRef.current) return;
+      refreshInFlightRef.current = true;
       if (!silent) {
-        setLoadingState(false);
+        setLoadingState(true);
       }
-    }
-  }, [isLoaded, isSignedIn, joinToken, publicId]);
+      try {
+        const data = await syncFunding(publicId, { join_token: joinToken });
+        setEscrow(data.escrow);
+        setStateError(null);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to load claim state";
+        const isAuthBootstrapRace =
+          silent && message.toLowerCase().includes("authentication required");
+
+        if (isAuthBootstrapRace) {
+          // On shared-link/new-tab loads Clerk user state can be ready before JWT minting.
+          // Treat this as transient and retry shortly without flashing a red banner.
+          if (
+            !authRetryScheduledRef.current &&
+            document.visibilityState === "visible"
+          ) {
+            authRetryScheduledRef.current = true;
+            window.setTimeout(() => {
+              authRetryScheduledRef.current = false;
+              void refreshClaimState(true);
+            }, 900);
+          }
+        } else {
+          setStateError(message);
+        }
+      } finally {
+        refreshInFlightRef.current = false;
+        if (!silent) {
+          setLoadingState(false);
+        }
+      }
+    },
+    [isLoaded, isSignedIn, joinToken, publicId],
+  );
 
   useEffect(() => {
     if (!publicId || !joinToken || !isLoaded || !isSignedIn) return;
@@ -125,7 +134,7 @@ export default function ClaimRolePage() {
   const sharedClaimLink = useMemo(() => {
     if (!origin || !publicId || !joinToken) return "";
     return `${origin}/claim?public_id=${encodeURIComponent(publicId)}#join_token=${encodeURIComponent(
-      joinToken
+      joinToken,
     )}`;
   }, [joinToken, origin, publicId]);
 
@@ -171,7 +180,10 @@ export default function ClaimRolePage() {
       return;
     }
 
-    if ((role === "sender" && actorIsSender) || (role === "recipient" && actorIsRecipient)) {
+    if (
+      (role === "sender" && actorIsSender) ||
+      (role === "recipient" && actorIsRecipient)
+    ) {
       goToRolePage(role);
       return;
     }
@@ -186,7 +198,9 @@ export default function ClaimRolePage() {
       setEscrow(updated);
       goToRolePage(role);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to claim role.");
+      setActionError(
+        err instanceof Error ? err.message : "Failed to claim role.",
+      );
       await refreshClaimState();
     } finally {
       setActionLoading(null);
@@ -208,14 +222,16 @@ export default function ClaimRolePage() {
         <div className="bg-neutral-900/60 backdrop-blur rounded-2xl p-6 border border-neutral-800 mb-4">
           <h1 className="text-2xl font-bold tracking-tight">Claim Role</h1>
           <p className="text-sm text-neutral-400 mt-1">
-            Both users open this same link, then claim sender or recipient. Claimed roles lock.
+            Both users open this same link, then claim sender or recipient.
+            Claimed roles lock.
           </p>
         </div>
 
         {(!publicId || !joinToken) && (
           <div className="bg-red-950/40 border border-red-800/30 rounded-lg p-4 mb-4">
             <p className="text-sm text-red-300">
-              Invalid claim session. Open the original claim link again to restore access.
+              Invalid claim session. Open the original claim link again to
+              restore access.
             </p>
           </div>
         )}
@@ -234,7 +250,9 @@ export default function ClaimRolePage() {
 
         {isLoaded && !isSignedIn && (
           <div className="bg-yellow-950/40 border border-yellow-800/30 rounded-lg p-4 mb-4">
-            <p className="text-sm text-yellow-300">Sign in to claim a sender or recipient role.</p>
+            <p className="text-sm text-yellow-300">
+              Sign in to claim a sender or recipient role.
+            </p>
           </div>
         )}
 
@@ -252,7 +270,11 @@ export default function ClaimRolePage() {
           <h2 className="text-lg font-semibold mb-3">Your Account</h2>
           <div className="flex items-center gap-2 bg-neutral-800/70 border border-neutral-700 rounded-lg px-3 py-2">
             <span className="text-sm text-neutral-200 truncate flex-1">
-              {actorUserId ? actorDisplayName : isLoaded ? "Not signed in" : "Loading..."}
+              {actorUserId
+                ? actorDisplayName
+                : isLoaded
+                  ? "Not signed in"
+                  : "Loading..."}
             </span>
             <button
               onClick={() => setShowTechnicalIds((prev) => !prev)}
@@ -262,7 +284,12 @@ export default function ClaimRolePage() {
             </button>
             <button
               onClick={refreshClaimState}
-              disabled={actionLoading !== null || loadingState || !isLoaded || !isSignedIn}
+              disabled={
+                actionLoading !== null ||
+                loadingState ||
+                !isLoaded ||
+                !isSignedIn
+              }
               className="px-3 py-2 text-xs rounded-lg bg-neutral-700 hover:bg-neutral-600 disabled:opacity-50"
             >
               {loadingState ? "Syncing..." : "Sync"}
@@ -272,12 +299,16 @@ export default function ClaimRolePage() {
             <div className="mt-2 space-y-1 text-xs">
               <div className="flex items-center gap-2">
                 <span className="text-neutral-500">User ID:</span>
-                <span className="font-mono text-neutral-300 truncate flex-1">{actorUserId || "-"}</span>
+                <span className="font-mono text-neutral-300 truncate flex-1">
+                  {actorUserId || "-"}
+                </span>
                 {actorUserId ? <CopyButton value={actorUserId} /> : null}
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-neutral-500">Escrow ID:</span>
-                <span className="font-mono text-neutral-300 truncate flex-1">{publicId || "-"}</span>
+                <span className="font-mono text-neutral-300 truncate flex-1">
+                  {publicId || "-"}
+                </span>
                 {publicId ? <CopyButton value={publicId} /> : null}
               </div>
             </div>
@@ -287,26 +318,35 @@ export default function ClaimRolePage() {
         <div className="grid sm:grid-cols-2 gap-4">
           <section
             className={`rounded-2xl p-5 border backdrop-blur ${
-              senderLocked ? "bg-neutral-950/40 border-neutral-800 opacity-50" : "bg-neutral-900/60 border-neutral-800"
+              senderLocked
+                ? "bg-neutral-950/40 border-neutral-800 opacity-50"
+                : "bg-neutral-900/60 border-neutral-800"
             }`}
           >
             <h3 className="text-lg font-semibold">Sender</h3>
             <p className="text-xs text-neutral-500 mt-1">
               Claimed by:{" "}
               <span className="text-neutral-300">
-                {actorIsSender ? "You" : senderClaimedBy ? "Sender account claimed" : "Unclaimed"}
+                {actorIsSender
+                  ? "You"
+                  : senderClaimedBy
+                    ? "Sender account claimed"
+                    : "Unclaimed"}
               </span>
             </p>
             {showTechnicalIds && senderClaimedBy ? (
               <div className="mt-2 flex items-center gap-2">
                 <span className="text-xs text-neutral-500">ID:</span>
-                <span className="text-xs font-mono text-neutral-300 truncate flex-1">{senderClaimedBy}</span>
+                <span className="text-xs font-mono text-neutral-300 truncate flex-1">
+                  {senderClaimedBy}
+                </span>
                 <CopyButton value={senderClaimedBy} />
               </div>
             ) : null}
             {actorIsRecipient && (
               <p className="text-xs text-yellow-300 mt-2">
-                You already claimed recipient, so sender is blocked for this account.
+                You already claimed recipient, so sender is blocked for this
+                account.
               </p>
             )}
             <button
@@ -317,16 +357,18 @@ export default function ClaimRolePage() {
               {actorIsSender
                 ? "Continue As Sender"
                 : actionLoading === "sender"
-                ? "Claiming..."
-                : senderLocked
-                ? "Sender Already Claimed"
-                : "Claim Sender"}
+                  ? "Claiming..."
+                  : senderLocked
+                    ? "Sender Already Claimed"
+                    : "Claim Sender"}
             </button>
           </section>
 
           <section
             className={`rounded-2xl p-5 border backdrop-blur ${
-              recipientLocked ? "bg-neutral-950/40 border-neutral-800 opacity-50" : "bg-neutral-900/60 border-neutral-800"
+              recipientLocked
+                ? "bg-neutral-950/40 border-neutral-800 opacity-50"
+                : "bg-neutral-900/60 border-neutral-800"
             }`}
           >
             <h3 className="text-lg font-semibold">Recipient</h3>
@@ -336,20 +378,23 @@ export default function ClaimRolePage() {
                 {actorIsRecipient
                   ? "You"
                   : recipientClaimedBy
-                  ? "Recipient account claimed"
-                  : "Unclaimed"}
+                    ? "Recipient account claimed"
+                    : "Unclaimed"}
               </span>
             </p>
             {showTechnicalIds && recipientClaimedBy ? (
               <div className="mt-2 flex items-center gap-2">
                 <span className="text-xs text-neutral-500">ID:</span>
-                <span className="text-xs font-mono text-neutral-300 truncate flex-1">{recipientClaimedBy}</span>
+                <span className="text-xs font-mono text-neutral-300 truncate flex-1">
+                  {recipientClaimedBy}
+                </span>
                 <CopyButton value={recipientClaimedBy} />
               </div>
             ) : null}
             {actorIsSender && (
               <p className="text-xs text-yellow-300 mt-2">
-                You already claimed sender, so recipient is blocked for this account.
+                You already claimed sender, so recipient is blocked for this
+                account.
               </p>
             )}
             <button
@@ -360,10 +405,10 @@ export default function ClaimRolePage() {
               {actorIsRecipient
                 ? "Continue As Recipient"
                 : actionLoading === "recipient"
-                ? "Claiming..."
-                : recipientLocked
-                ? "Recipient Already Claimed"
-                : "Claim Recipient"}
+                  ? "Claiming..."
+                  : recipientLocked
+                    ? "Recipient Already Claimed"
+                    : "Claim Recipient"}
             </button>
           </section>
         </div>

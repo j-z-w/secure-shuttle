@@ -55,7 +55,7 @@ function dealTimestampMs(escrow: Escrow): number {
 async function mapWithConcurrency<T, R>(
   items: T[],
   concurrency: number,
-  worker: (item: T) => Promise<R>
+  worker: (item: T) => Promise<R>,
 ): Promise<R[]> {
   if (items.length === 0) return [];
   const out: R[] = new Array(items.length);
@@ -72,7 +72,7 @@ async function mapWithConcurrency<T, R>(
 
   const workers = Array.from(
     { length: Math.max(1, Math.min(concurrency, items.length)) },
-    () => runWorker()
+    () => runWorker(),
   );
   await Promise.all(workers);
   return out;
@@ -149,7 +149,7 @@ export default function ProfilePage() {
             } catch {
               return { escrow, receivedScore: null };
             }
-          }
+          },
         );
 
         if (cancelled) return;
@@ -170,7 +170,9 @@ export default function ProfilePage() {
       } catch (err) {
         if (cancelled) return;
         setLoadError(
-          err instanceof Error ? err.message : "Failed to load profile history."
+          err instanceof Error
+            ? err.message
+            : "Failed to load profile history.",
         );
       } finally {
         if (!cancelled) {

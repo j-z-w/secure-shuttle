@@ -62,9 +62,13 @@ export default function EscrowRouteHubPage() {
       if (cancelBehavior === "pay_recipient") settlement = "pay_recipient";
       const result = await cancelEscrowByPublicId(publicId, settlement);
       if (settlement === "pay_recipient" && result.refund_signature) {
-        setActionNotice(`Escrow terminated and paid to recipient: ${shortSig(result.refund_signature)}`);
+        setActionNotice(
+          `Escrow terminated and paid to recipient: ${shortSig(result.refund_signature)}`,
+        );
       } else if (settlement === "refund_sender" && result.refund_signature) {
-        setActionNotice(`Escrow cancelled and refunded to sender: ${shortSig(result.refund_signature)}`);
+        setActionNotice(
+          `Escrow cancelled and refunded to sender: ${shortSig(result.refund_signature)}`,
+        );
       } else if (settlement === "pay_recipient") {
         setActionNotice("Escrow terminated.");
       } else if (settlement === "refund_sender") {
@@ -73,7 +77,9 @@ export default function EscrowRouteHubPage() {
         setActionNotice("Escrow cancelled without payout.");
       }
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Cancel action failed.");
+      setActionError(
+        err instanceof Error ? err.message : "Cancel action failed.",
+      );
     } finally {
       setActionLoading(false);
     }
@@ -93,10 +99,12 @@ export default function EscrowRouteHubPage() {
       <div className="relative z-10 w-full max-w-xl bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-2xl p-6">
         <h1 className="text-2xl font-bold">Escrow Route Hub</h1>
         <p className="text-sm text-neutral-400 mt-2">
-          Public ID: <span className="font-mono text-neutral-200">{publicId}</span>
+          Public ID:{" "}
+          <span className="font-mono text-neutral-200">{publicId}</span>
         </p>
         <p className="text-sm text-neutral-400 mt-1">
-          Continue through the shared claim page, then each user goes to sender or recipient workspace.
+          Continue through the shared claim page, then each user goes to sender
+          or recipient workspace.
         </p>
 
         <div className="mt-5 grid gap-2">
@@ -176,11 +184,17 @@ export default function EscrowRouteHubPage() {
           </button>
 
           {!isLoaded ? (
-            <p className="text-xs text-neutral-500 mt-2">Checking authentication...</p>
+            <p className="text-xs text-neutral-500 mt-2">
+              Checking authentication...
+            </p>
           ) : !isSignedIn ? (
-            <p className="text-xs text-yellow-300 mt-2">Sign in as admin to use these controls.</p>
+            <p className="text-xs text-yellow-300 mt-2">
+              Sign in as admin to use these controls.
+            </p>
           ) : !isAdmin ? (
-            <p className="text-xs text-yellow-300 mt-2">Your account is not an admin account.</p>
+            <p className="text-xs text-yellow-300 mt-2">
+              Your account is not an admin account.
+            </p>
           ) : (
             <p className="text-xs text-neutral-500 mt-2">Admin mode enabled.</p>
           )}

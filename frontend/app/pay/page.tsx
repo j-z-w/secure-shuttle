@@ -53,7 +53,7 @@ export default function PayPage() {
       }
     } catch (err) {
       setSubmitError(
-        err instanceof Error ? err.message : "Something went wrong"
+        err instanceof Error ? err.message : "Something went wrong",
       );
       setIsSubmitting(false);
     }

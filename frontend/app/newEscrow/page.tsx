@@ -53,7 +53,7 @@ export default function NewEscrowPage() {
       }
     } catch (err) {
       setSubmitError(
-        err instanceof Error ? err.message : "Something went wrong"
+        err instanceof Error ? err.message : "Something went wrong",
       );
       setIsSubmitting(false);
     }
@@ -92,9 +92,7 @@ export default function NewEscrowPage() {
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
             Create Escrow
           </h1>
-          <p className="mt-3 text-neutral-400">
-            Set up a payment with ease.
-          </p>
+          <p className="mt-3 text-neutral-400">Set up a payment with ease.</p>
           <p className="mt-1 text-neutral-400">
             You&apos;ll get a link to share with the other party.
           </p>

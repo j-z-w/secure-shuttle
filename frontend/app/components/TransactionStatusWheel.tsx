@@ -31,20 +31,46 @@ export default function TransactionStatusWheel({
                 step.state === "done"
                   ? "bg-emerald-700"
                   : step.state === "current"
-                  ? "bg-indigo-700"
-                  : step.state === "error"
-                  ? "bg-red-700"
-                  : "bg-neutral-700"
+                    ? "bg-indigo-700"
+                    : step.state === "error"
+                      ? "bg-red-700"
+                      : "bg-neutral-700"
               }`}
             >
               {step.state === "done" ? (
-                <svg className="size-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                <svg
+                  className="size-3 text-white"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={3}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
               ) : step.state === "current" ? (
-                <svg className="size-3 animate-spin text-white" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" className="opacity-30" />
-                  <path d="M21 12a9 9 0 00-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                <svg
+                  className="size-3 animate-spin text-white"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="9"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    className="opacity-30"
+                  />
+                  <path
+                    d="M21 12a9 9 0 00-9-9"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  />
                 </svg>
               ) : (
                 <span className="size-1.5 rounded-full bg-neutral-300" />
@@ -56,15 +82,17 @@ export default function TransactionStatusWheel({
                   step.state === "done"
                     ? "text-white"
                     : step.state === "current"
-                    ? "text-indigo-200"
-                    : step.state === "error"
-                    ? "text-red-200"
-                    : "text-neutral-500"
+                      ? "text-indigo-200"
+                      : step.state === "error"
+                        ? "text-red-200"
+                        : "text-neutral-500"
                 }`}
               >
                 {step.label}
               </p>
-              {step.detail ? <p className="text-xs text-neutral-500 mt-0.5">{step.detail}</p> : null}
+              {step.detail ? (
+                <p className="text-xs text-neutral-500 mt-0.5">{step.detail}</p>
+              ) : null}
             </div>
           </div>
         ))}
