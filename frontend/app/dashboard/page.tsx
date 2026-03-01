@@ -22,9 +22,13 @@ export default function Dashboard() {
         {/* New Escrow button — pinned to the right with ml-auto */}
         <a
           href="/newEscrow"
-          className="ml-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded transition relative z-10"
+          className="ml-auto relative z-10"
         >
-          + New Escrow
+          <img
+            src="/create-new-escrow.svg"
+            alt="New Escrow"
+            className="h-9 object-contain"
+          />
         </a>
       </header>
 
