@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
+import ChatBox from "./chat";
 
 export default function EscrowRouteHubPage() {
   const params = useParams();
