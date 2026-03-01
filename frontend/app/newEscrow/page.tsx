@@ -96,6 +96,9 @@ export default function NewEscrowPage() {
           <p className="mt-1 text-neutral-400">
             You&apos;ll get a link to share with the other party.
           </p>
+          <p className="mt-3 text-xs font-medium text-amber-300">
+            Devnet only: use test SOL funds for escrow creation.
+          </p>
         </div>
 
         {/* Form */}
