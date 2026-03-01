@@ -18,9 +18,9 @@ export const metadata: Metadata = {
   title: "Secure Shuttle",
   description: "Secure escrow payments on Solana",
   icons: {
-    icon: "/logo-icon.svg",
-    shortcut: "/logo-icon.svg",
-    apple: "/logo-icon.svg",
+    icon: "/logo-icon.webp",
+    shortcut: "/logo-icon.webp",
+    apple: "/logo-icon.webp",
   },
 };
 
