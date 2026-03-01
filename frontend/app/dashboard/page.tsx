@@ -62,13 +62,15 @@ export default function Dashboard() {
         const sorted = [...res.items].sort(
           (a, b) =>
             new Date(b.updated_at ?? b.created_at).getTime() -
-            new Date(a.updated_at ?? a.created_at).getTime()
+            new Date(a.updated_at ?? a.created_at).getTime(),
         );
         setEscrows(sorted);
       } catch (err) {
         if (!active) return;
         setEscrows([]);
-        setError(err instanceof Error ? err.message : "Failed to load escrows.");
+        setError(
+          err instanceof Error ? err.message : "Failed to load escrows.",
+        );
       } finally {
         if (active) setLoading(false);
       }
@@ -83,11 +85,11 @@ export default function Dashboard() {
 
   const activeEscrows = useMemo(
     () => escrows.filter((escrow) => ACTIVE_STATUSES.has(escrow.status)),
-    [escrows]
+    [escrows],
   );
   const historyEscrows = useMemo(
     () => escrows.filter((escrow) => HISTORY_STATUSES.has(escrow.status)),
-    [escrows]
+    [escrows],
   );
   const recentEscrows = useMemo(() => escrows.slice(0, 5), [escrows]);
 
@@ -95,16 +97,19 @@ export default function Dashboard() {
     () =>
       activeEscrows.reduce(
         (sum, escrow) => sum + (escrow.expected_amount_lamports ?? 0),
-        0
+        0,
       ),
-    [activeEscrows]
+    [activeEscrows],
   );
   const releasedLamports = useMemo(
     () =>
       escrows
         .filter((escrow) => escrow.status === "released")
-        .reduce((sum, escrow) => sum + (escrow.expected_amount_lamports ?? 0), 0),
-    [escrows]
+        .reduce(
+          (sum, escrow) => sum + (escrow.expected_amount_lamports ?? 0),
+          0,
+        ),
+    [escrows],
   );
 
   const uniqueCounterparties = useMemo(() => {
@@ -117,8 +122,9 @@ export default function Dashboard() {
   }, [escrows]);
 
   const disputeRate = escrows.length
-    ? ((escrows.filter((escrow) => escrow.status === "disputed").length /
-        escrows.length) *
+    ? (
+        (escrows.filter((escrow) => escrow.status === "disputed").length /
+          escrows.length) *
         100
       ).toFixed(1)
     : "0.0";
@@ -140,10 +146,7 @@ export default function Dashboard() {
         </div>
 
         {/* New Escrow button — pinned to the right with ml-auto */}
-        <Link
-          href="/newEscrow"
-          className="ml-auto relative z-10"
-        >
+        <Link href="/newEscrow" className="ml-auto relative z-10">
           <img
             src="/create-new-escrow.svg"
             alt="New Escrow"
@@ -329,7 +332,10 @@ export default function Dashboard() {
               Completed
             </div>
             <div className="text-2xl font-bold text-gray-100">
-              {historyEscrows.filter((escrow) => escrow.status === "released").length}
+              {
+                historyEscrows.filter((escrow) => escrow.status === "released")
+                  .length
+              }
             </div>
             <div className="text-gray-500 text-xs mt-1">All time</div>
           </div>
@@ -376,7 +382,10 @@ export default function Dashboard() {
                         {escrow.label || formatShort(escrow.public_id)}
                       </span>
                       <span className="text-xs text-gray-400">
-                        {lamportsToSol(escrow.expected_amount_lamports ?? 0).toFixed(3)} SOL
+                        {lamportsToSol(
+                          escrow.expected_amount_lamports ?? 0,
+                        ).toFixed(3)}{" "}
+                        SOL
                       </span>
                     </Link>
                   ))}
@@ -449,4 +458,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
