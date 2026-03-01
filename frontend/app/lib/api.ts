@@ -38,8 +38,8 @@ type BrowserClerk = {
   session?: ClerkSession | null;
 };
 
-const CLERK_READY_WAIT_MS = 1_200;
-const CLERK_RETRY_WAIT_MS = 2_000;
+const CLERK_READY_WAIT_MS = 1_800;
+const CLERK_RETRY_WAIT_MS = 3_500;
 const CLERK_READY_POLL_MS = 50;
 const TOKEN_CACHE_TTL_MS = 15_000;
 

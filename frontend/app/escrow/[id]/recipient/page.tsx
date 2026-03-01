@@ -21,8 +21,19 @@ import CopyButton from "@/app/components/CopyButton";
 import TransactionStatusWheel, { type StatusStep } from "@/app/components/TransactionStatusWheel";
 import { loadJoinToken, saveJoinToken } from "@/app/lib/joinTokenStore";
 
-const AUTO_SCAN_INTERVAL_MS = 5_000;
+const AUTO_SCAN_FAST_MS = 5_000;
+const AUTO_SCAN_SLOW_MS = 15_000;
+const TX_STATUS_CHECK_COOLDOWN_MS = 8_000;
 const TERMINAL_ESCROW_STATUSES = new Set(["released", "cancelled"]);
+
+function autoScanIntervalMs(escrow: Escrow | null): number {
+  if (!escrow) return AUTO_SCAN_FAST_MS;
+  if (!escrow.funded_at) return AUTO_SCAN_FAST_MS;
+  if (escrow.status === "release_pending" || escrow.status === "refund_pending") {
+    return AUTO_SCAN_FAST_MS;
+  }
+  return AUTO_SCAN_SLOW_MS;
+}
 
 function shortSig(sig: string): string {
   if (sig.length <= 20) return sig;
@@ -73,17 +84,23 @@ export default function RecipientEscrowPage() {
   const [recipientAddress, setRecipientAddressInput] = useState("");
   const [disputeReason, setDisputeReason] = useState("");
   const [showTechnicalIds, setShowTechnicalIds] = useState(false);
+  const [joinTokenReady, setJoinTokenReady] = useState(false);
 
   const scanInFlightRef = useRef(false);
+  const lastTxStatusCheckAtRef = useRef(0);
 
   useEffect(() => {
     const token = joinTokenFromUrl || loadJoinToken(publicId);
-    if (!token) return;
-    setJoinToken(token);
-    saveJoinToken(publicId, token);
+    if (token) {
+      setJoinToken(token);
+      saveJoinToken(publicId, token);
+    } else {
+      setJoinToken("");
+    }
     if (joinTokenFromUrl) {
       router.replace(`/escrow/${encodeURIComponent(publicId)}/recipient`);
     }
+    setJoinTokenReady(true);
   }, [joinTokenFromUrl, publicId, router]);
 
   const fetchEscrowCore = useCallback(async (syncFundingState = false): Promise<Escrow> => {
@@ -127,6 +144,11 @@ export default function RecipientEscrowPage() {
 
       const latestState = normalizedTxStatus(latestRelease.status);
       if (latestState === "pending" || latestState === "waiting") {
+        const now = Date.now();
+        if (now - lastTxStatusCheckAtRef.current < TX_STATUS_CHECK_COOLDOWN_MS) {
+          return txRes;
+        }
+        lastTxStatusCheckAtRef.current = now;
         await checkTransactionStatus(latestRelease.signature, escrowId).catch(() => null);
         const refreshedTx = await getEscrowTransactions(escrowId).catch(() => txRes);
         setTransactions(refreshedTx);
@@ -184,8 +206,9 @@ export default function RecipientEscrowPage() {
       setLoading(false);
       return;
     }
+    if (!joinTokenReady) return;
     void loadEscrow();
-  }, [isLoaded, isSignedIn, loadEscrow]);
+  }, [isLoaded, isSignedIn, joinTokenReady, loadEscrow]);
 
   useEffect(() => {
     const runScan = () => {
@@ -199,16 +222,17 @@ export default function RecipientEscrowPage() {
       void scanChain(false);
     };
 
-    if (!isLoaded || !isSignedIn) return;
+    if (!isLoaded || !isSignedIn || !joinTokenReady) return;
+    const intervalMs = autoScanIntervalMs(escrow);
 
-    const timer = window.setInterval(runScan, AUTO_SCAN_INTERVAL_MS);
+    const timer = window.setInterval(runScan, intervalMs);
     document.addEventListener("visibilitychange", runScan);
 
     return () => {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", runScan);
     };
-  }, [escrow, scanChain, isLoaded, isSignedIn]);
+  }, [escrow, scanChain, isLoaded, isSignedIn, joinTokenReady]);
 
   const withAction = useCallback(async (name: string, fn: () => Promise<void>) => {
     setActionLoading(name);
@@ -449,7 +473,9 @@ export default function RecipientEscrowPage() {
               {loading ? "Syncing..." : "Sync Now"}
             </button>
             <span className="text-xs text-neutral-500">
-              {escrow?.status === "disputed" ? "Auto-sync paused during dispute" : "Auto-sync runs every 5s"}
+              {escrow?.status === "disputed"
+                ? "Auto-sync paused during dispute"
+                : `Auto-sync every ${Math.round(autoScanIntervalMs(escrow) / 1000)}s`}
             </span>
           </div>
           {showTechnicalIds ? (
@@ -558,7 +584,7 @@ export default function RecipientEscrowPage() {
             <p className="text-xs text-neutral-500 mt-2">
               {escrow?.status === "disputed"
                 ? "Auto-scanning paused during dispute"
-                : "Auto-scanning every 5s"}
+                : `Auto-scanning every ${Math.round(autoScanIntervalMs(escrow) / 1000)}s`}
               {lastScanAt ? ` - Last scan ${new Date(lastScanAt).toLocaleTimeString()}` : ""}
             </p>
           </section>

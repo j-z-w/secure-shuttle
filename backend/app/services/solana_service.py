@@ -1,5 +1,6 @@
 import base58
 import time
+from threading import Lock
 from typing import Optional
 
 from solana.rpc.api import Client
@@ -28,6 +29,13 @@ _COMMITMENT_RANK = {
     "confirmed": 2,
     "finalized": 3,
 }
+
+_balance_cache: dict[str, tuple[int, float]] = {}
+_tx_status_cache: dict[str, tuple[dict, float]] = {}
+_signatures_cache: dict[tuple[str, int], tuple[list[dict], float]] = {}
+_balance_cache_lock = Lock()
+_tx_status_cache_lock = Lock()
+_signatures_cache_lock = Lock()
 
 
 def generate_keypair() -> tuple[str, str]:
@@ -59,10 +67,22 @@ def validate_address(address: str) -> bool:
 
 def get_balance(public_key_b58: str) -> int:
     """Get balance in lamports for a Solana address."""
+    ttl = max(0.0, float(settings.solana_balance_cache_ttl_seconds))
+    if ttl > 0:
+        now = time.monotonic()
+        with _balance_cache_lock:
+            cached = _balance_cache.get(public_key_b58)
+            if cached and cached[1] > now:
+                return cached[0]
+
     pubkey = _parse_pubkey(public_key_b58)
     try:
         response = client.get_balance(pubkey)
-        return response.value
+        value = response.value
+        if ttl > 0:
+            with _balance_cache_lock:
+                _balance_cache[public_key_b58] = (value, time.monotonic() + ttl)
+        return value
     except Exception as e:
         raise SolanaRPCError(str(e))
 
@@ -100,6 +120,14 @@ def commitment_satisfied(current: Optional[str], target: Optional[str]) -> bool:
 
 def get_transaction_status(signature_b58: str) -> dict:
     """Check status of a transaction signature on-chain."""
+    ttl = max(0.0, float(settings.solana_tx_status_cache_ttl_seconds))
+    if ttl > 0:
+        now = time.monotonic()
+        with _tx_status_cache_lock:
+            cached = _tx_status_cache.get(signature_b58)
+            if cached and cached[1] > now:
+                return dict(cached[0])
+
     try:
         sig = Signature.from_string(signature_b58)
     except Exception:
@@ -112,23 +140,41 @@ def get_transaction_status(signature_b58: str) -> dict:
 
     status_info = response.value[0]
     if status_info is None:
-        return {
+        result = {
             "status": "not_found",
             "slot": None,
             "confirmations": None,
             "err": None,
         }
+        if ttl > 0:
+            with _tx_status_cache_lock:
+                _tx_status_cache[signature_b58] = (dict(result), time.monotonic() + ttl)
+        return result
 
-    return {
+    result = {
         "status": _normalize_commitment(status_info.confirmation_status),
         "slot": status_info.slot,
         "confirmations": status_info.confirmations,
         "err": str(status_info.err) if status_info.err else None,
     }
+    if ttl > 0:
+        with _tx_status_cache_lock:
+            _tx_status_cache[signature_b58] = (dict(result), time.monotonic() + ttl)
+    return result
 
 
 def list_recent_signatures_for_address(public_key_b58: str, limit: int = 25) -> list[dict]:
     """List recent transaction signatures seen for an address."""
+    ttl = max(0.0, float(settings.solana_signatures_cache_ttl_seconds))
+    cache_key = (public_key_b58, int(limit))
+    if ttl > 0:
+        now = time.monotonic()
+        with _signatures_cache_lock:
+            cached = _signatures_cache.get(cache_key)
+            if cached and cached[1] > now:
+                # Return a shallow copy so callers can't mutate the cached list in-place.
+                return [dict(item) for item in cached[0]]
+
     pubkey = _parse_pubkey(public_key_b58)
     try:
         response = client.get_signatures_for_address(pubkey, limit=limit)
@@ -148,6 +194,10 @@ def list_recent_signatures_for_address(public_key_b58: str, limit: int = 25) -> 
                 "block_time": getattr(item, "block_time", None),
             }
         )
+
+    if ttl > 0:
+        with _signatures_cache_lock:
+            _signatures_cache[cache_key] = ([dict(item) for item in signatures], time.monotonic() + ttl)
 
     return signatures
 

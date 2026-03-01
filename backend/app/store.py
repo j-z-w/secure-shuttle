@@ -73,6 +73,9 @@ _ESCROW_META_FIELDS = {
     "version",
 }
 
+_HTTP_TIMEOUT = httpx.Timeout(timeout=10.0, connect=3.0)
+_HTTP_CLIENT = httpx.Client(timeout=_HTTP_TIMEOUT)
+
 
 def _clean_args(args: Optional[dict]) -> dict:
     if not args:
@@ -178,7 +181,7 @@ def _list_all_escrow_docs(status_filter: Optional[str] = None) -> list[dict]:
 def _query(function: str, args: Optional[dict] = None):
     payload_args = _clean_args(args)
     payload_args["internal_key"] = CONVEX_INTERNAL_API_KEY
-    r = httpx.post(
+    r = _HTTP_CLIENT.post(
         f"{CONVEX_API}/api/query",
         json={"path": function, "args": payload_args},
     )
@@ -192,7 +195,7 @@ def _query(function: str, args: Optional[dict] = None):
 def _mutation(function: str, args: Optional[dict] = None):
     payload_args = _clean_args(args)
     payload_args["internal_key"] = CONVEX_INTERNAL_API_KEY
-    r = httpx.post(
+    r = _HTTP_CLIENT.post(
         f"{CONVEX_API}/api/mutation",
         json={"path": function, "args": payload_args},
     )

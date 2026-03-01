@@ -78,23 +78,40 @@ export const list = query({
     assertInternalKey(args.internal_key);
     let results;
 
-    if (args.status_filter) {
+    if (args.mine_only && args.actor_user_id) {
+      const actor = args.actor_user_id;
+      const [created, paying, payee] = await Promise.all([
+        ctx.db
+          .query("escrows")
+          .withIndex("by_creator", (q) => q.eq("creator_user_id", actor))
+          .collect(),
+        ctx.db
+          .query("escrows")
+          .withIndex("by_payer", (q) => q.eq("payer_user_id", actor))
+          .collect(),
+        ctx.db
+          .query("escrows")
+          .withIndex("by_payee", (q) => q.eq("payee_user_id", actor))
+          .collect(),
+      ]);
+
+      const merged = [...created, ...paying, ...payee];
+      const deduped = new Map(merged.map((e) => [e._id, e]));
+      results = Array.from(deduped.values());
+      if (args.status_filter) {
+        results = results.filter((e) => e.status === args.status_filter);
+      }
+      results.sort(
+        (a, b) =>
+          (b.updated_at ?? b._creationTime) - (a.updated_at ?? a._creationTime)
+      );
+    } else if (args.status_filter) {
       results = await ctx.db
         .query("escrows")
         .withIndex("by_status", (q) => q.eq("status", args.status_filter!))
         .collect();
     } else {
       results = await ctx.db.query("escrows").collect();
-    }
-
-    // Filter by user if mine_only
-    if (args.mine_only && args.actor_user_id) {
-      results = results.filter(
-        (e) =>
-          e.creator_user_id === args.actor_user_id ||
-          e.payer_user_id === args.actor_user_id ||
-          e.payee_user_id === args.actor_user_id
-      );
     }
 
     const total = results.length;

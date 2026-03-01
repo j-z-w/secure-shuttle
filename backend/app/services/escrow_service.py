@@ -1,6 +1,8 @@
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
+from threading import Lock
+import time
 from typing import Optional
 
 from app import store
@@ -20,6 +22,8 @@ from app.schemas.transaction import TransactionCreate
 from app.services import solana_service
 
 TERMINAL_ESCROW_STATES = {"released", "cancelled"}
+_funding_signature_scan_last_at: dict[str, float] = {}
+_funding_signature_scan_lock = Lock()
 
 
 def create_escrow(data: EscrowCreate, actor_user_id: str) -> dict:
@@ -816,19 +820,39 @@ def _minimum_required_funding_lamports(escrow: dict) -> int:
 
 def _sync_recent_address_signatures(escrow: dict) -> Optional[dict]:
     """Upsert recent on-chain signatures for escrow address and return latest deposit tx."""
+    escrow_id = escrow["id"]
+    now = time.monotonic()
+    cooldown = max(0.0, float(settings.funding_signature_rescan_cooldown_seconds))
+    if cooldown > 0:
+        with _funding_signature_scan_lock:
+            last_at = _funding_signature_scan_last_at.get(escrow_id)
+            if last_at and (now - last_at) < cooldown:
+                return _latest_transaction_for_type(escrow_id, "deposit")
+            _funding_signature_scan_last_at[escrow_id] = now
+
     try:
         signatures = solana_service.list_recent_signatures_for_address(
             escrow["public_key"],
             limit=max(1, int(settings.funding_signature_scan_limit)),
         )
     except Exception:
+        if cooldown > 0:
+            with _funding_signature_scan_lock:
+                last_seen = _funding_signature_scan_last_at.get(escrow_id)
+                if last_seen == now:
+                    _funding_signature_scan_last_at.pop(escrow_id, None)
         return _latest_transaction_for_type(escrow["id"], "deposit")
 
     latest_deposit: Optional[dict] = None
+    existing_by_signature = {
+        tx.get("signature"): tx
+        for tx in store.list_transactions(escrow_id)
+        if tx.get("signature")
+    }
 
     for sig in signatures:
         signature = sig["signature"]
-        existing = get_transaction_by_signature(signature)
+        existing = existing_by_signature.get(signature)
 
         if existing:
             updates = {}
@@ -843,7 +867,7 @@ def _sync_recent_address_signatures(escrow: dict) -> Optional[dict]:
         else:
             existing = record_transaction(
                 TransactionCreate(
-                    escrow_id=escrow["id"],
+                    escrow_id=escrow_id,
                     signature=signature,
                     tx_type="deposit",
                     amount_lamports=None,
@@ -859,7 +883,7 @@ def _sync_recent_address_signatures(escrow: dict) -> Optional[dict]:
 
         if (
             existing
-            and existing.get("escrow_id") == escrow["id"]
+            and existing.get("escrow_id") == escrow_id
             and existing.get("tx_type") == "deposit"
             and latest_deposit is None
         ):
@@ -867,7 +891,7 @@ def _sync_recent_address_signatures(escrow: dict) -> Optional[dict]:
 
     if latest_deposit:
         return latest_deposit
-    return _latest_transaction_for_type(escrow["id"], "deposit")
+    return _latest_transaction_for_type(escrow_id, "deposit")
 
 
 def _hash_token(value: str) -> str:
