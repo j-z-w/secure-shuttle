@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useUser } from "@clerk/nextjs";
+import { useUser, SignOutButton } from "@clerk/nextjs";
 //homepage
 export default function Home() {
   const { user } = useUser();
@@ -129,6 +129,25 @@ export default function Home() {
               Dashboard
             </a>
           )}
+
+          <SignOutButton>
+          <button  
+              style={{
+                padding: "0.75rem 2rem",
+                background: "#0070f3",
+                color: "#fff",
+                borderRadius: "6px",
+                textDecoration: "none",
+                fontWeight: 600,
+                fontSize: "1rem",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
+                marginBottom: "1rem",
+                display: "inline-block",
+              }}
+            >
+              Log Out
+            </button>
+          </SignOutButton>
         </div>
       </div>
 
