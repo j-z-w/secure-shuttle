@@ -112,7 +112,7 @@ export default function Home() {
             Create New Escrow
           </a>
 
-          {user && (
+          {user?.publicMetadata?.role === "admin" && (
             <a
               href="/dashboard"
               style={{
