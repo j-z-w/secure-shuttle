@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class TransactionCreate(BaseModel):
-    escrow_id: int
+    escrow_id: str
     signature: str
     tx_type: str  # deposit, release, refund, unknown
     amount_lamports: Optional[int] = None
@@ -21,8 +21,8 @@ class TransactionCreate(BaseModel):
 
 
 class TransactionOut(BaseModel):
-    id: int
-    escrow_id: int
+    id: str
+    escrow_id: str
     signature: str
     tx_type: str
     amount_lamports: Optional[int]
@@ -42,7 +42,7 @@ class TransactionOut(BaseModel):
 
 class TransactionStatusRequest(BaseModel):
     signature: str
-    escrow_id: Optional[int] = None
+    escrow_id: Optional[str] = None
 
 
 class TransactionStatusOut(BaseModel):

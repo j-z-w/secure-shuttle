@@ -1,5 +1,5 @@
 class EscrowNotFoundError(Exception):
-    def __init__(self, escrow_id: int | str):
+    def __init__(self, escrow_id: str):
         self.escrow_id = escrow_id
         self.detail = f"Escrow {escrow_id} not found"
 
@@ -23,7 +23,7 @@ class InvalidAddressError(Exception):
 
 
 class EscrowCancelledError(Exception):
-    def __init__(self, escrow_id: int):
+    def __init__(self, escrow_id: str):
         self.detail = f"Escrow {escrow_id} is already cancelled"
 
 

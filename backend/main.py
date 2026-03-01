@@ -1,16 +1,24 @@
 import os
+from pathlib import Path
 
-from convex import ConvexClient
+import httpx
 from dotenv import load_dotenv
 
-load_dotenv(".env.local")
-CONVEX_URL = os.getenv("CONVEX_URL")
-# or you can hardcode your deployment URL instead
+_BACKEND_DIR = Path(__file__).resolve().parent
+load_dotenv(_BACKEND_DIR / ".env")
+load_dotenv(_BACKEND_DIR / ".env.local")
 
-client = ConvexClient(CONVEX_URL)
+convex_url = os.getenv("CONVEX_URL") or os.getenv("NEXT_PUBLIC_CONVEX_URL")
+if not convex_url:
+    raise RuntimeError("Set CONVEX_URL or NEXT_PUBLIC_CONVEX_URL in backend/.env.local")
 
-print(client.query("user_profiles:get"))
-
-for tasks in client.subscribe("user_profiles:get"):
-    print(tasks)
-    # this loop lasts forever, ctrl-c to exit it
+response = httpx.post(
+    f"{convex_url.rstrip('/')}/api/query",
+    json={
+        "path": "convex_escrows:list",
+        "args": {"status_filter": None, "limit": 5, "offset": 0, "mine_only": False},
+    },
+    timeout=20.0,
+)
+response.raise_for_status()
+print(response.json())

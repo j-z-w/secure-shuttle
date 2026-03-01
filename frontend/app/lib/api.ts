@@ -7,30 +7,75 @@ import type {
   CreateEscrowPayload,
   EscrowStatus,
   InviteResponse,
+  ClaimRolePayload,
+  RecipientAddressPayload,
+  FundingSyncPayload,
+  FundingSyncResponse,
+  ServiceCompletePayload,
+  DisputePayload,
+  EscrowTransaction,
+  TransactionStatusResponse,
 } from "./types";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+type ClerkUser = {
+  id?: string | null;
+};
 
-// For now, use a hardcoded user ID for wireframe/dev purposes.
-// In production this would come from Clerk or another auth provider.
-const DEV_USER_ID = "dev-user-1";
+type ClerkSession = {
+  getToken?: () => Promise<string | null>;
+};
 
-export function setUserId(id: string) {
-  _userId = id;
+type BrowserClerk = {
+  user?: ClerkUser | null;
+  session?: ClerkSession | null;
+};
+
+function getBrowserClerk(): BrowserClerk | null {
+  if (typeof window === "undefined") return null;
+  const win = window as Window & { Clerk?: BrowserClerk };
+  return win.Clerk ?? null;
 }
 
-let _userId = DEV_USER_ID;
+export function getUserId(): string {
+  return getBrowserClerk()?.user?.id?.trim() ?? "";
+}
 
-function authHeaders(): Record<string, string> {
-  return {
+// Backward-compatible no-op for legacy call sites.
+export function setUserId(_id: string) {}
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "X-User-Id": _userId,
   };
+
+  const clerk = getBrowserClerk();
+  const userId = clerk?.user?.id?.trim();
+  if (userId) {
+    headers["X-User-Id"] = userId;
+  }
+
+  if (clerk?.session?.getToken) {
+    try {
+      const token = await clerk.session.getToken();
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+    } catch {
+      // If token retrieval fails, backend will reject unauthenticated calls.
+    }
+  }
+
+  return headers;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers = await authHeaders();
   const res = await fetch(`${BASE}${path}`, {
-    headers: authHeaders(),
+    headers: {
+      ...headers,
+      ...(options?.headers as Record<string, string> | undefined),
+    },
     ...options,
   });
   if (!res.ok) {
@@ -49,7 +94,7 @@ export async function createEscrow(
   });
 }
 
-export async function getEscrow(id: number): Promise<Escrow> {
+export async function getEscrow(id: string): Promise<Escrow> {
   return request<Escrow>(`/api/v1/escrows/${id}`);
 }
 
@@ -64,26 +109,47 @@ export async function listEscrows(
   return request<EscrowListResponse>(`/api/v1/escrows/${params}`);
 }
 
-export async function getBalance(id: number): Promise<BalanceResponse> {
+export async function getBalance(id: string): Promise<BalanceResponse> {
   return request<BalanceResponse>(`/api/v1/escrows/${id}/balance`);
 }
 
 export async function releaseFunds(
-  id: number,
+  id: string,
   recipientAddress?: string,
-  amountLamports?: number
+  amountLamports?: number,
+  idempotencyKey?: string
 ): Promise<ReleaseResponse> {
   return request<ReleaseResponse>(`/api/v1/escrows/${id}/release`, {
     method: "POST",
     body: JSON.stringify({
       recipient_address: recipientAddress,
       amount_lamports: amountLamports,
+      idempotency_key: idempotencyKey,
     }),
   });
 }
 
+export async function releaseFundsByPublicId(
+  publicId: string,
+  recipientAddress?: string,
+  amountLamports?: number,
+  idempotencyKey?: string
+): Promise<ReleaseResponse> {
+  return request<ReleaseResponse>(
+    `/api/v1/escrows/public/${publicId}/release`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        recipient_address: recipientAddress,
+        amount_lamports: amountLamports,
+        idempotency_key: idempotencyKey,
+      }),
+    }
+  );
+}
+
 export async function cancelEscrow(
-  id: number,
+  id: string,
   returnFunds = false,
   refundAddress?: string
 ): Promise<CancelResponse> {
@@ -113,5 +179,83 @@ export async function acceptInvite(inviteToken: string): Promise<Escrow> {
 export async function markFunded(publicId: string): Promise<Escrow> {
   return request<Escrow>(`/api/v1/escrows/public/${publicId}/mark-funded`, {
     method: "POST",
+  });
+}
+
+export async function claimRole(
+  publicId: string,
+  payload: ClaimRolePayload
+): Promise<Escrow> {
+  return request<Escrow>(`/api/v1/escrows/public/${publicId}/claim-role`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function setRecipientAddress(
+  publicId: string,
+  payload: RecipientAddressPayload
+): Promise<Escrow> {
+  return request<Escrow>(
+    `/api/v1/escrows/public/${publicId}/recipient-address`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function syncFunding(
+  publicId: string,
+  payload: FundingSyncPayload = {}
+): Promise<FundingSyncResponse> {
+  return request<FundingSyncResponse>(
+    `/api/v1/escrows/public/${publicId}/sync-funding`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function markServiceComplete(
+  publicId: string,
+  payload: ServiceCompletePayload
+): Promise<Escrow> {
+  return request<Escrow>(
+    `/api/v1/escrows/public/${publicId}/service-complete`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function openDispute(
+  publicId: string,
+  payload: DisputePayload
+): Promise<Escrow> {
+  return request<Escrow>(`/api/v1/escrows/public/${publicId}/dispute`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getEscrowTransactions(
+  escrowId: string
+): Promise<EscrowTransaction[]> {
+  return request<EscrowTransaction[]>(`/api/v1/escrows/${escrowId}/transactions`);
+}
+
+export async function checkTransactionStatus(
+  signature: string,
+  escrowId?: string
+): Promise<TransactionStatusResponse> {
+  return request<TransactionStatusResponse>("/api/v1/transactions/status", {
+    method: "POST",
+    body: JSON.stringify({
+      signature,
+      escrow_id: escrowId,
+    }),
   });
 }

@@ -43,7 +43,15 @@ export default function NewEscrowPage() {
         label: label.trim() || undefined,
         expected_amount_lamports: lamports,
       });
-      router.push(`/escrow/${escrow.public_id}`);
+      if (escrow.join_token) {
+        const qs = new URLSearchParams({
+          public_id: escrow.public_id,
+          join_token: escrow.join_token,
+        });
+        router.push(`/claim?${qs.toString()}`);
+      } else {
+        router.push(`/escrow/${escrow.public_id}`);
+      }
     } catch (err) {
       setSubmitError(
         err instanceof Error ? err.message : "Something went wrong"

@@ -65,7 +65,7 @@ def list_escrows(
     )
 
 
-def get_escrow(escrow_id: int, actor_user_id: Optional[str] = None) -> dict:
+def get_escrow(escrow_id: str, actor_user_id: Optional[str] = None) -> dict:
     escrow = store.get_escrow(escrow_id)
     if not escrow:
         raise EscrowNotFoundError(escrow_id)
@@ -83,7 +83,7 @@ def get_escrow_by_public_id(public_id: str, actor_user_id: Optional[str] = None)
     return escrow
 
 
-def update_escrow(escrow_id: int, data: EscrowUpdate, actor_user_id: str) -> dict:
+def update_escrow(escrow_id: str, data: EscrowUpdate, actor_user_id: str) -> dict:
     escrow = get_escrow(escrow_id)
     _require_sender_or_creator(escrow, actor_user_id)
     _ensure_not_terminal(escrow)
@@ -178,11 +178,24 @@ def sync_funding(
     else:
         _require_view_access(escrow, actor_user_id)
 
+    latest_funding_tx = _sync_recent_address_signatures(escrow)
     balance = solana_service.get_balance(escrow["public_key"])
-    funded = balance > solana_service.TRANSFER_FEE_LAMPORTS
+    minimum_required = _minimum_required_funding_lamports(escrow)
+    funding_tx_confirmed = False
+    if latest_funding_tx and not latest_funding_tx.get("raw_error"):
+        funding_tx_confirmed = solana_service.commitment_satisfied(
+            latest_funding_tx.get("status"),
+            "confirmed",
+        )
+    elif escrow.get("funded_at"):
+        # Backward-compatible fallback for previously funded escrows with no tracked deposit tx.
+        funding_tx_confirmed = True
+
+    has_required_balance = balance >= minimum_required
+    funding_eligible = has_required_balance and funding_tx_confirmed
     updated_escrow = escrow
 
-    if funded and not escrow.get("funded_at"):
+    if funding_eligible and not escrow.get("funded_at"):
         updates = {
             "funded_at": datetime.now(timezone.utc),
             "failure_reason": None,
@@ -195,6 +208,10 @@ def sync_funding(
         "escrow": updated_escrow,
         "balance_lamports": balance,
         "funded": bool(updated_escrow.get("funded_at")),
+        "funding_transaction_signature": latest_funding_tx.get("signature") if latest_funding_tx else None,
+        "funding_transaction_status": latest_funding_tx.get("status") if latest_funding_tx else None,
+        "funding_transaction_confirmed": funding_tx_confirmed,
+        "minimum_required_lamports": minimum_required,
     }
 
 
@@ -309,7 +326,7 @@ def mark_funded(public_id: str, actor_user_id: str) -> dict:
 
 
 def cancel_escrow(
-    escrow_id: int,
+    escrow_id: str,
     actor_user_id: str,
     return_funds: bool = False,
     refund_address: Optional[str] = None,
@@ -398,7 +415,7 @@ def cancel_escrow(
 
 
 def release_funds(
-    escrow_id: int,
+    escrow_id: str,
     actor_user_id: str,
     recipient_override: Optional[str] = None,
     amount_override: Optional[int] = None,
@@ -586,7 +603,7 @@ def record_transaction(data: TransactionCreate) -> dict:
     )
 
 
-def list_transactions(escrow_id: int, actor_user_id: Optional[str] = None) -> list[dict]:
+def list_transactions(escrow_id: str, actor_user_id: Optional[str] = None) -> list[dict]:
     escrow = get_escrow(escrow_id)
     if actor_user_id:
         _require_view_access(escrow, actor_user_id)
@@ -597,7 +614,7 @@ def get_transaction_by_signature(signature: str) -> Optional[dict]:
     return store.get_transaction_by_signature(signature)
 
 
-def reconcile_escrow(escrow_id: int, actor_user_id: str) -> dict:
+def reconcile_escrow(escrow_id: str, actor_user_id: str) -> dict:
     escrow = get_escrow(escrow_id)
     _require_sender_or_creator(escrow, actor_user_id)
 
@@ -652,7 +669,7 @@ def reconcile_escrow(escrow_id: int, actor_user_id: str) -> dict:
     }
 
 
-def _latest_transaction_for_type(escrow_id: int, tx_type: str) -> Optional[dict]:
+def _latest_transaction_for_type(escrow_id: str, tx_type: str) -> Optional[dict]:
     txs = store.list_transactions(escrow_id)
     for tx in txs:  # already sorted by recorded_at desc
         if tx["tx_type"] == tx_type:
@@ -660,7 +677,7 @@ def _latest_transaction_for_type(escrow_id: int, tx_type: str) -> Optional[dict]
     return None
 
 
-def _find_transaction_by_intent(escrow_id: int, tx_type: str, intent_hash: str) -> Optional[dict]:
+def _find_transaction_by_intent(escrow_id: str, tx_type: str, intent_hash: str) -> Optional[dict]:
     txs = store.list_transactions(escrow_id)
     for tx in txs:
         if tx["tx_type"] == tx_type and tx.get("intent_hash") == intent_hash:
@@ -670,13 +687,76 @@ def _find_transaction_by_intent(escrow_id: int, tx_type: str, intent_hash: str) 
 
 def _build_intent_hash(
     *,
-    escrow_id: int,
+    escrow_id: str,
     recipient: str,
     amount_lamports: int,
     idempotency_key: str,
 ) -> str:
     raw = f"{escrow_id}:{recipient}:{amount_lamports}:{idempotency_key}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _minimum_required_funding_lamports(escrow: dict) -> int:
+    expected = escrow.get("expected_amount_lamports")
+    if isinstance(expected, int) and expected > 0:
+        return expected
+    return max(1, int(settings.escrow_funding_min_lamports))
+
+
+def _sync_recent_address_signatures(escrow: dict) -> Optional[dict]:
+    """Upsert recent on-chain signatures for escrow address and return latest deposit tx."""
+    try:
+        signatures = solana_service.list_recent_signatures_for_address(
+            escrow["public_key"],
+            limit=max(1, int(settings.funding_signature_scan_limit)),
+        )
+    except Exception:
+        return _latest_transaction_for_type(escrow["id"], "deposit")
+
+    latest_deposit: Optional[dict] = None
+
+    for sig in signatures:
+        signature = sig["signature"]
+        existing = get_transaction_by_signature(signature)
+
+        if existing:
+            updates = {}
+            if sig.get("status") and existing.get("status") != sig["status"]:
+                updates["status"] = sig["status"]
+            if existing.get("raw_error") != sig.get("err"):
+                updates["raw_error"] = sig.get("err")
+            if sig.get("memo") and existing.get("memo") != sig.get("memo"):
+                updates["memo"] = sig.get("memo")
+            if updates:
+                existing = store.update_transaction(signature, updates) or existing
+        else:
+            existing = record_transaction(
+                TransactionCreate(
+                    escrow_id=escrow["id"],
+                    signature=signature,
+                    tx_type="deposit",
+                    amount_lamports=None,
+                    from_address=None,
+                    to_address=escrow["public_key"],
+                    status=sig.get("status") or "processed",
+                    commitment_target="confirmed",
+                    rpc_endpoint=settings.solana_rpc_url,
+                    raw_error=sig.get("err"),
+                    memo=sig.get("memo"),
+                )
+            )
+
+        if (
+            existing
+            and existing.get("escrow_id") == escrow["id"]
+            and existing.get("tx_type") == "deposit"
+            and latest_deposit is None
+        ):
+            latest_deposit = existing
+
+    if latest_deposit:
+        return latest_deposit
+    return _latest_transaction_for_type(escrow["id"], "deposit")
 
 
 def _hash_token(value: str) -> str:

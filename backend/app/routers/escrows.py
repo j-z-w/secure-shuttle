@@ -51,7 +51,7 @@ def list_escrows(
 
 
 @router.get("/{escrow_id}", response_model=EscrowOut)
-def get_escrow(escrow_id: int, actor_user_id: str = Depends(get_actor_user_id)):
+def get_escrow(escrow_id: str, actor_user_id: str = Depends(get_actor_user_id)):
     return escrow_service.get_escrow(escrow_id, actor_user_id)
 
 
@@ -65,7 +65,7 @@ def get_escrow_by_public_id(
 
 @router.patch("/{escrow_id}", response_model=EscrowOut)
 def update_escrow(
-    escrow_id: int,
+    escrow_id: str,
     data: EscrowUpdate,
     actor_user_id: str = Depends(get_actor_user_id),
 ):
@@ -74,7 +74,7 @@ def update_escrow(
 
 @router.delete("/{escrow_id}", response_model=CancelOut)
 def cancel_escrow(
-    escrow_id: int,
+    escrow_id: str,
     return_funds: bool = Query(False),
     refund_address: Optional[str] = Query(None),
     actor_user_id: str = Depends(get_actor_user_id),
@@ -89,7 +89,7 @@ def cancel_escrow(
 
 
 @router.get("/{escrow_id}/balance", response_model=BalanceOut)
-def get_balance(escrow_id: int, actor_user_id: str = Depends(get_actor_user_id)):
+def get_balance(escrow_id: str, actor_user_id: str = Depends(get_actor_user_id)):
     escrow = escrow_service.get_escrow(escrow_id, actor_user_id)
     lamports = solana_service.get_balance(escrow["public_key"])
     return BalanceOut(
@@ -101,7 +101,7 @@ def get_balance(escrow_id: int, actor_user_id: str = Depends(get_actor_user_id))
 
 @router.post("/{escrow_id}/release", response_model=ReleaseOut)
 def release_funds(
-    escrow_id: int,
+    escrow_id: str,
     data: ReleaseRequest,
     actor_user_id: str = Depends(get_actor_user_id),
 ):
@@ -201,7 +201,7 @@ def mark_funded(public_id: str, actor_user_id: str = Depends(get_actor_user_id))
 
 @router.get("/{escrow_id}/transactions", response_model=list[TransactionOut])
 def get_escrow_transactions(
-    escrow_id: int,
+    escrow_id: str,
     actor_user_id: str = Depends(get_actor_user_id),
 ):
     escrow_service.get_escrow(escrow_id, actor_user_id)  # verify exists and access
@@ -209,5 +209,5 @@ def get_escrow_transactions(
 
 
 @router.post("/{escrow_id}/reconcile", response_model=ReconcileOut)
-def reconcile_escrow(escrow_id: int, actor_user_id: str = Depends(get_actor_user_id)):
+def reconcile_escrow(escrow_id: str, actor_user_id: str = Depends(get_actor_user_id)):
     return escrow_service.reconcile_escrow(escrow_id, actor_user_id)
