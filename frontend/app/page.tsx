@@ -24,7 +24,6 @@ export default function Home() {
           height: "100vh",
           zIndex: 0,
           backgroundImage: "url('/homepageBackground.webp')",
-          // "linear-gradient(rgba(20,20,20,0.7), rgba(20,20,20,0.7)), url('/homepageBackground.webp')",
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
@@ -91,10 +90,29 @@ export default function Home() {
             fontWeight: 600,
             fontSize: "1rem",
             boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
+            marginBottom: "1rem",
             display: "inline-block",
           }}
         >
           Create New Escrow
+        </a>
+
+        <a
+          href="/dashboard"
+          style={{
+            padding: "0.75rem 2rem",
+            background: "#0070f3",
+            color: "#fff",
+            borderRadius: "6px",
+            textDecoration: "none",
+            fontWeight: 600,
+            fontSize: "1rem",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
+            marginBottom: "1rem",
+            display: "inline-block",
+          }}
+        >
+          Dashboard
         </a>
       </div>
     </main>
