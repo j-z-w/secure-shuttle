@@ -89,7 +89,7 @@ export default function Dashboard() {
             className={`flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-700 ${!sidebarOpen && "justify-center"}`}
           >
             <img
-              src="/icons-overview.webp"
+              src="/icons-escrow.webp"
               alt="New Escrow"
               className="w-4 h-4 shrink-0 object-contain"
             />
@@ -100,7 +100,7 @@ export default function Dashboard() {
             className={`flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-700 ${!sidebarOpen && "justify-center"}`}
           >
             <img
-              src="/icons-overview.webp"
+              src="/icons-escrow.webp"
               alt="Active Escrows"
               className="w-4 h-4 shrink-0 object-contain"
             />
@@ -111,7 +111,7 @@ export default function Dashboard() {
             className={`flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-700 ${!sidebarOpen && "justify-center"}`}
           >
             <img
-              src="/icons-overview.webp"
+              src="/icons-escrow.webp"
               alt="Escrow History"
               className="w-4 h-4 shrink-0 object-contain"
             />
@@ -128,7 +128,7 @@ export default function Dashboard() {
             className={`flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-700 ${!sidebarOpen && "justify-center"}`}
           >
             <img
-              src="/icons-account.webp"
+              src="/icons-user.webp"
               alt="User Profile"
               className="w-4 h-4 shrink-0 object-contain"
             />
@@ -139,7 +139,7 @@ export default function Dashboard() {
             className={`flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-700 ${!sidebarOpen && "justify-center"}`}
           >
             <img
-              src="/icons-account.webp"
+              src="/icons-settings.webp"
               alt="Settings"
               className="w-4 h-4 shrink-0 object-contain"
             />
