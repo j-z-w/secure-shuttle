@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "@clerk/nextjs": "^6.39.0"
+    "@clerk/nextjs": "^6.39.0",
+    "convex": "^1.32.0"
   }
 }
