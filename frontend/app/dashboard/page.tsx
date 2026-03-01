@@ -37,7 +37,7 @@ function formatShort(value: string | null) {
 
 export default function Dashboard() {
   const { isLoaded, user } = useUser();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [escrows, setEscrows] = useState<Escrow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -127,27 +127,6 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-900 text-white flex flex-col">
       {/* Top Bar */}
       <header className="w-full bg-gray-800 shadow-md z-10 relative flex items-center px-6 py-3">
-        <button
-          type="button"
-          className="text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 rounded p-1 z-10"
-          onClick={() => setSidebarOpen(true)}
-          aria-label="Open sidebar menu"
-        >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 6h16M4 12h16M4 18h16"
-            />
-          </svg>
-        </button>
-
         {/* Logo — absolutely centered across the full header width */}
         <div className="absolute inset-x-0 flex justify-center pointer-events-none">
           <Link href="/" aria-label="Home" className="pointer-events-auto">
@@ -169,49 +148,48 @@ export default function Dashboard() {
         </Link>
       </header>
 
-      {sidebarOpen && (
-        <button
-          type="button"
-          className="fixed inset-0 z-20 bg-black/50"
-          onClick={() => setSidebarOpen(false)}
-          aria-label="Close sidebar overlay"
-        />
-      )}
-
-      {/* Sidebar Drawer */}
+      {/* Sidebar */}
       <aside
-        className={`z-30 fixed top-0 left-0 h-screen w-64 bg-gray-800 transition-transform duration-300 p-4 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        className={`z-20 fixed top-0 left-0 h-screen bg-gray-800 transition-all duration-300 flex-shrink-0 p-4 ${
+          sidebarOpen ? "w-64" : "w-16"
         }`}
       >
-        <div className="flex items-center justify-between mb-6">
-          <span className="text-lg font-bold tracking-tight truncate">
-            My Account
-          </span>
+        <div className="flex items-center gap-2 mb-6">
           <button
             className="text-gray-400 hover:text-white focus:outline-none"
             onClick={() => setSidebarOpen((open) => !open)}
-            aria-label="Close sidebar"
+            aria-label="Toggle sidebar"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
+                d="M4 6h16M4 12h16M4 18h16"
               />
             </svg>
           </button>
+          {sidebarOpen && (
+            <span className="text-lg font-bold tracking-tight truncate">
+              My Account
+            </span>
+          )}
         </div>
 
         <nav className="space-y-1">
-          <div className="text-gray-400 uppercase text-xs mb-2 px-3">
-            Dashboards
-          </div>
+          {sidebarOpen && (
+            <div className="text-gray-400 uppercase text-xs mb-2 px-3">
+              Dashboards
+            </div>
+          )}
           <Link
             href="/dashboard"
-            onClick={() => setSidebarOpen(false)}
-            className="flex items-center gap-3 py-2 px-3 rounded font-semibold bg-gray-700"
+            className={`flex items-center gap-3 py-2 px-3 rounded font-semibold bg-gray-700 ${!sidebarOpen && "justify-center"}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -219,16 +197,17 @@ export default function Dashboard() {
               alt="Overview"
               className="w-4 h-4 shrink-0 object-contain"
             />
-            Overview
+            {sidebarOpen && "Overview"}
           </Link>
 
-          <div className="text-gray-400 uppercase text-xs mt-5 mb-2 px-3">
-            Escrow
-          </div>
+          {sidebarOpen && (
+            <div className="text-gray-400 uppercase text-xs mt-5 mb-2 px-3">
+              Escrow
+            </div>
+          )}
           <Link
             href="/newEscrow"
-            onClick={() => setSidebarOpen(false)}
-            className="flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-700"
+            className={`flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-700 ${!sidebarOpen && "justify-center"}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -236,12 +215,11 @@ export default function Dashboard() {
               alt="New Escrow"
               className="w-4 h-4 shrink-0 object-contain"
             />
-            New Escrow
+            {sidebarOpen && "New Escrow"}
           </Link>
           <Link
             href="/escrows?status=funded"
-            onClick={() => setSidebarOpen(false)}
-            className="flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-700"
+            className={`flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-700 ${!sidebarOpen && "justify-center"}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -249,12 +227,11 @@ export default function Dashboard() {
               alt="Active Escrows"
               className="w-4 h-4 shrink-0 object-contain"
             />
-            Active Escrows
+            {sidebarOpen && "Active Escrows"}
           </Link>
           <Link
             href="/escrows?status=released"
-            onClick={() => setSidebarOpen(false)}
-            className="flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-700"
+            className={`flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-700 ${!sidebarOpen && "justify-center"}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -262,16 +239,17 @@ export default function Dashboard() {
               alt="Escrow History"
               className="w-4 h-4 shrink-0 object-contain"
             />
-            Escrow History
+            {sidebarOpen && "Escrow History"}
           </Link>
 
-          <div className="text-gray-400 uppercase text-xs mt-5 mb-2 px-3">
-            Account
-          </div>
+          {sidebarOpen && (
+            <div className="text-gray-400 uppercase text-xs mt-5 mb-2 px-3">
+              Account
+            </div>
+          )}
           <Link
             href="/profile"
-            onClick={() => setSidebarOpen(false)}
-            className="flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-700"
+            className={`flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-700 ${!sidebarOpen && "justify-center"}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -279,12 +257,11 @@ export default function Dashboard() {
               alt="User Profile"
               className="w-4 h-4 shrink-0 object-contain"
             />
-            User Profile
+            {sidebarOpen && "User Profile"}
           </Link>
           <Link
             href="/settings"
-            onClick={() => setSidebarOpen(false)}
-            className="flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-700"
+            className={`flex items-center gap-3 py-2 px-3 rounded hover:bg-gray-700 ${!sidebarOpen && "justify-center"}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -292,13 +269,17 @@ export default function Dashboard() {
               alt="Settings"
               className="w-4 h-4 shrink-0 object-contain"
             />
-            Settings
+            {sidebarOpen && "Settings"}
           </Link>
         </nav>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 transition-all duration-300 p-6 pt-4">
+      <main
+        className={`flex-1 transition-all duration-300 p-6 pt-4 ${
+          sidebarOpen ? "md:ml-64" : "md:ml-16"
+        }`}
+      >
         {/* Page Title */}
         <h1 className="text-xl font-bold mb-4 text-gray-100">
           Dashboard Overview
