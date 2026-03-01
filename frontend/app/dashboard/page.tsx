@@ -142,9 +142,13 @@ export default function Dashboard() {
         {/* New Escrow button — pinned to the right with ml-auto */}
         <Link
           href="/newEscrow"
-          className="ml-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded transition relative z-10"
+          className="ml-auto relative z-10"
         >
-          + New Escrow
+          <img
+            src="/create-new-escrow.svg"
+            alt="New Escrow"
+            className="h-9 object-contain"
+          />
         </Link>
       </header>
 
@@ -211,7 +215,7 @@ export default function Dashboard() {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/icons-overview.webp"
+              src="/icons-escrow.webp"
               alt="New Escrow"
               className="w-4 h-4 shrink-0 object-contain"
             />
@@ -223,7 +227,7 @@ export default function Dashboard() {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/icons-overview.webp"
+              src="/icons-escrow.webp"
               alt="Active Escrows"
               className="w-4 h-4 shrink-0 object-contain"
             />
@@ -235,7 +239,7 @@ export default function Dashboard() {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/icons-overview.webp"
+              src="/icons-escrow.webp"
               alt="Escrow History"
               className="w-4 h-4 shrink-0 object-contain"
             />
@@ -253,7 +257,7 @@ export default function Dashboard() {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/icons-account.webp"
+              src="/icons-user.webp"
               alt="User Profile"
               className="w-4 h-4 shrink-0 object-contain"
             />
@@ -265,7 +269,7 @@ export default function Dashboard() {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/icons-account.webp"
+              src="/icons-settings.webp"
               alt="Settings"
               className="w-4 h-4 shrink-0 object-contain"
             />
