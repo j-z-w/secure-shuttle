@@ -1,4 +1,5 @@
 import base58
+import httpx
 import time
 from threading import Lock
 from typing import Optional
@@ -36,6 +37,7 @@ _signatures_cache: dict[tuple[str, int], tuple[list[dict], float]] = {}
 _balance_cache_lock = Lock()
 _tx_status_cache_lock = Lock()
 _signatures_cache_lock = Lock()
+_rpc_http_client = httpx.Client(timeout=httpx.Timeout(timeout=8.0, connect=3.0))
 
 
 def generate_keypair() -> tuple[str, str]:
@@ -309,3 +311,93 @@ def send_transfer(
         amount_lamports,
     )
     return result["signature"]
+
+
+def infer_system_transfer_sender(
+    signature_b58: str,
+    destination_public_key_b58: str,
+) -> Optional[str]:
+    """Best-effort parse of a signature to find source wallet that funded destination."""
+    _parse_pubkey(destination_public_key_b58)
+
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "getTransaction",
+        "params": [
+            signature_b58,
+            {"encoding": "jsonParsed", "maxSupportedTransactionVersion": 0},
+        ],
+    }
+    try:
+        response = _rpc_http_client.post(settings.solana_rpc_url, json=payload)
+        response.raise_for_status()
+        body = response.json()
+    except Exception:
+        return None
+
+    tx_result = body.get("result") if isinstance(body, dict) else None
+    if not isinstance(tx_result, dict):
+        return None
+
+    tx = tx_result.get("transaction")
+    if not isinstance(tx, dict):
+        return None
+
+    message = tx.get("message")
+    if not isinstance(message, dict):
+        return None
+
+    instructions: list[dict] = []
+    raw_instructions = message.get("instructions")
+    if isinstance(raw_instructions, list):
+        instructions.extend(item for item in raw_instructions if isinstance(item, dict))
+
+    meta = tx_result.get("meta")
+    if isinstance(meta, dict):
+        inner = meta.get("innerInstructions")
+        if isinstance(inner, list):
+            for block in inner:
+                if not isinstance(block, dict):
+                    continue
+                nested = block.get("instructions")
+                if isinstance(nested, list):
+                    instructions.extend(item for item in nested if isinstance(item, dict))
+
+    for instruction in instructions:
+        parsed = instruction.get("parsed")
+        if not isinstance(parsed, dict):
+            continue
+        info = parsed.get("info")
+        if not isinstance(info, dict):
+            continue
+        destination = info.get("destination")
+        if destination != destination_public_key_b58:
+            continue
+
+        source = info.get("source")
+        if isinstance(source, str):
+            try:
+                _parse_pubkey(source)
+                return source
+            except InvalidAddressError:
+                continue
+
+    account_keys = message.get("accountKeys")
+    if isinstance(account_keys, list):
+        for key in account_keys:
+            if not isinstance(key, dict):
+                continue
+            source = key.get("pubkey")
+            if (
+                isinstance(source, str)
+                and source != destination_public_key_b58
+                and bool(key.get("signer"))
+            ):
+                try:
+                    _parse_pubkey(source)
+                    return source
+                except InvalidAddressError:
+                    continue
+
+    return None

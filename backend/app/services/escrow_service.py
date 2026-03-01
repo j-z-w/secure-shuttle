@@ -477,12 +477,18 @@ def cancel_escrow(
 
     if settlement == "refund_sender":
         target_address = payout_address or escrow.get("sender_address")
+        if not target_address:
+            target_address = _resolve_refund_sender_address(escrow)
+            if target_address:
+                store.update_escrow(escrow_id, {"sender_address": target_address})
         tx_type = "refund"
         pending_status = "refund_pending"
         final_status = "cancelled"
         intent_prefix = "refund"
         if not target_address:
-            raise InvalidAddressError("Sender address is not set for refund.")
+            raise InvalidAddressError(
+                "Sender address is not set for refund. Provide payout_address or fund once so sender can be inferred."
+            )
     elif settlement == "pay_recipient":
         target_address = payout_address or escrow.get("recipient_address")
         tx_type = "release"
@@ -873,6 +879,52 @@ def _minimum_required_funding_lamports(escrow: dict) -> int:
     if isinstance(expected, int) and expected > 0:
         return expected
     return max(1, int(settings.escrow_funding_min_lamports))
+
+
+def _resolve_refund_sender_address(escrow: dict) -> Optional[str]:
+    """Try to infer sender wallet from recorded/latest deposit signatures."""
+    latest_deposit = _latest_transaction_for_type(escrow["id"], "deposit")
+    if latest_deposit and latest_deposit.get("from_address"):
+        return latest_deposit["from_address"]
+
+    signatures: list[str] = []
+    if latest_deposit and latest_deposit.get("signature"):
+        signatures.append(latest_deposit["signature"])
+
+    if not signatures:
+        try:
+            recent = solana_service.list_recent_signatures_for_address(
+                escrow["public_key"],
+                limit=max(1, int(settings.funding_signature_scan_limit)),
+            )
+            signatures.extend(
+                item["signature"]
+                for item in recent
+                if isinstance(item, dict) and isinstance(item.get("signature"), str)
+            )
+        except Exception:
+            return None
+
+    seen: set[str] = set()
+    for signature in signatures:
+        if signature in seen:
+            continue
+        seen.add(signature)
+
+        source = solana_service.infer_system_transfer_sender(
+            signature,
+            escrow["public_key"],
+        )
+        if not source:
+            continue
+
+        existing = store.get_transaction_by_signature(signature)
+        if existing and existing.get("escrow_id") == escrow["id"] and not existing.get("from_address"):
+            store.update_transaction(signature, {"from_address": source})
+
+        return source
+
+    return None
 
 
 def _sync_recent_address_signatures(escrow: dict) -> Optional[dict]:
