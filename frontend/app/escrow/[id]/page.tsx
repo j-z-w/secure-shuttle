@@ -3,12 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-<<<<<<< HEAD
 import ChatBox from "./chat";
-=======
 import { useUser } from "@clerk/nextjs";
-import { cancelEscrowByPublicId } from "@/app/lib/api";
->>>>>>> 1d953041ee87829e7e572c8352e6839be450f0ef
+import { cancelEscrowByPublicd } from "@/app/lib/api";
 
 export default function EscrowRouteHubPage() {
   const params = useParams();
@@ -178,6 +175,7 @@ export default function EscrowRouteHubPage() {
           )}
         </section>
       </div>
+      <ChatBox/>
     </div>
   );
 }
