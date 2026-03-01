@@ -101,10 +101,6 @@ export const list = query({
       if (args.status_filter) {
         results = results.filter((e) => e.status === args.status_filter);
       }
-      results.sort(
-        (a, b) =>
-          (b.updated_at ?? b._creationTime) - (a.updated_at ?? a._creationTime)
-      );
     } else if (args.status_filter) {
       results = await ctx.db
         .query("escrows")
@@ -113,6 +109,11 @@ export const list = query({
     } else {
       results = await ctx.db.query("escrows").collect();
     }
+
+    results.sort(
+      (a, b) =>
+        (b.updated_at ?? b._creationTime) - (a.updated_at ?? a._creationTime)
+    );
 
     const total = results.length;
     const page = results.slice(args.offset, args.offset + args.limit);
