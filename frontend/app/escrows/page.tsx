@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { listEscrows } from "@/app/lib/api";
 import type { Escrow, EscrowStatus } from "@/app/lib/types";
 import EscrowCard from "@/app/components/EscrowCard";
+import BackButton from "@/app/components/BackButton";
 
 const TABS: { label: string; value: EscrowStatus | "all" }[] = [
   { label: "All", value: "all" },
@@ -52,6 +53,10 @@ export default function EscrowsPage() {
   return (
     <div className="min-h-screen bg-[#1d1d1d] text-white">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+        <div className="mb-6">
+          <BackButton fallbackHref="/dashboard" />
+        </div>
+
         {/* Logo */}
         <div className="flex justify-center mb-8">
           <Image

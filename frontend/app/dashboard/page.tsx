@@ -5,6 +5,7 @@ import { useUser } from "@clerk/nextjs";
 import { listEscrows } from "@/app/lib/api";
 import type { Escrow } from "@/app/lib/types";
 import EscrowStatusBadge from "@/app/components/EscrowStatusBadge";
+import BackButton from "@/app/components/BackButton";
 
 const ACTIVE_STATUSES = new Set([
   "open",
@@ -147,6 +148,8 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-900 text-white flex flex-col">
       {/* Top Bar */}
       <header className="w-full bg-gray-800 shadow-md z-10 relative flex items-center px-6 py-3">
+        <BackButton fallbackHref="/" className="relative z-10" />
+
         {/* Logo — absolutely centered across the full header width */}
         <div className="absolute inset-x-0 flex justify-center pointer-events-none">
           <Link href="/" aria-label="Home" className="pointer-events-auto">

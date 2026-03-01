@@ -332,9 +332,10 @@ def cancel_escrow(
     refund_address: Optional[str] = None,
     settlement: str = "none",
     payout_address: Optional[str] = None,
+    actor_is_admin: bool = False,
 ) -> tuple[dict, Optional[str]]:
     escrow = get_escrow(escrow_id)
-    _require_sender_or_creator(escrow, actor_user_id)
+    _require_sender_or_creator(escrow, actor_user_id, actor_is_admin)
 
     if escrow["status"] == "cancelled":
         raise EscrowCancelledError(escrow_id)
@@ -444,6 +445,27 @@ def cancel_escrow(
         },
     )
     return result or escrow, refund_sig
+
+
+def cancel_escrow_by_public_id(
+    public_id: str,
+    actor_user_id: str,
+    return_funds: bool = False,
+    refund_address: Optional[str] = None,
+    settlement: str = "none",
+    payout_address: Optional[str] = None,
+    actor_is_admin: bool = False,
+) -> tuple[dict, Optional[str]]:
+    escrow = _get_escrow_by_public_id(public_id)
+    return cancel_escrow(
+        escrow_id=escrow["id"],
+        actor_user_id=actor_user_id,
+        return_funds=return_funds,
+        refund_address=refund_address,
+        settlement=settlement,
+        payout_address=payout_address,
+        actor_is_admin=actor_is_admin,
+    )
 
 
 def release_funds(
@@ -814,7 +836,13 @@ def _require_recipient(escrow: dict, actor_user_id: str) -> None:
         raise ForbiddenActionError("Only the recipient can perform this action.")
 
 
-def _require_sender_or_creator(escrow: dict, actor_user_id: str) -> None:
+def _require_sender_or_creator(
+    escrow: dict,
+    actor_user_id: str,
+    actor_is_admin: bool = False,
+) -> None:
+    if actor_is_admin:
+        return
     if actor_user_id not in {escrow.get("payer_user_id"), escrow.get("creator_user_id")}:
         raise ForbiddenActionError("Only the sender or creator can perform this action.")
 

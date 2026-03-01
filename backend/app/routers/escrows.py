@@ -2,7 +2,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 
-from app.auth import get_actor_user_id
+from app.auth import get_actor_is_admin, get_actor_user_id
 from app.schemas.escrow import (
     BalanceOut,
     CancelOut,
@@ -82,6 +82,7 @@ def cancel_escrow(
     settlement: str = Query("none", pattern="^(none|refund_sender|pay_recipient)$"),
     payout_address: Optional[str] = Query(None),
     actor_user_id: str = Depends(get_actor_user_id),
+    actor_is_admin: bool = Depends(get_actor_is_admin),
 ):
     escrow, refund_sig = escrow_service.cancel_escrow(
         escrow_id,
@@ -90,6 +91,29 @@ def cancel_escrow(
         refund_address,
         settlement,
         payout_address,
+        actor_is_admin,
+    )
+    return CancelOut(cancelled=True, refund_signature=refund_sig, escrow=escrow)
+
+
+@router.delete("/public/{public_id}/cancel", response_model=CancelOut)
+def cancel_escrow_by_public_id(
+    public_id: str,
+    return_funds: bool = Query(False),
+    refund_address: Optional[str] = Query(None),
+    settlement: str = Query("none", pattern="^(none|refund_sender|pay_recipient)$"),
+    payout_address: Optional[str] = Query(None),
+    actor_user_id: str = Depends(get_actor_user_id),
+    actor_is_admin: bool = Depends(get_actor_is_admin),
+):
+    escrow, refund_sig = escrow_service.cancel_escrow_by_public_id(
+        public_id,
+        actor_user_id,
+        return_funds,
+        refund_address,
+        settlement,
+        payout_address,
+        actor_is_admin,
     )
     return CancelOut(cancelled=True, refund_signature=refund_sig, escrow=escrow)
 

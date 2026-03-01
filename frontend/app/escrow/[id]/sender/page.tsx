@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import {
-  cancelEscrow,
   checkTransactionStatus,
   getBalance,
   getEscrowByPublicId,
@@ -80,9 +79,6 @@ export default function SenderEscrowPage() {
 
   const [joinToken, setJoinToken] = useState("");
   const [disputeReason, setDisputeReason] = useState("");
-  const [cancelBehavior, setCancelBehavior] = useState<
-    "cancel_only" | "refund_sender" | "pay_recipient"
-  >("cancel_only");
 
   const scanInFlightRef = useRef(false);
 
@@ -348,37 +344,6 @@ export default function SenderEscrowPage() {
     });
   }
 
-  async function handleCancelEscrow() {
-    if (!actorUserId) {
-      setActionError("You must be signed in to cancel.");
-      return;
-    }
-    if (!escrow?.id) {
-      setActionError("Escrow ID is missing.");
-      return;
-    }
-    await withAction("cancel", async () => {
-      let settlement: "none" | "refund_sender" | "pay_recipient" = "none";
-      if (cancelBehavior === "refund_sender") settlement = "refund_sender";
-      if (cancelBehavior === "pay_recipient") settlement = "pay_recipient";
-
-      const result = await cancelEscrow(escrow.id, settlement);
-      setEscrow(result.escrow);
-      if (settlement === "pay_recipient" && result.refund_signature) {
-        setActionNotice(`Escrow terminated and paid to recipient: ${shortSig(result.refund_signature)}`);
-      } else if (settlement === "refund_sender" && result.refund_signature) {
-        setActionNotice(`Escrow cancelled and refunded to sender: ${shortSig(result.refund_signature)}`);
-      } else {
-        setActionNotice(
-          settlement === "pay_recipient"
-            ? "Escrow terminated."
-            : "Escrow cancelled."
-        );
-      }
-      void scanChain(false);
-    });
-  }
-
   return (
     <div className="min-h-screen bg-[#1d1d1d] text-white">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
@@ -570,44 +535,9 @@ export default function SenderEscrowPage() {
             >
               {actionLoading === "dispute" ? "Submitting..." : "Open Dispute"}
             </button>
-
-            <h3 className="text-sm font-semibold mt-5 mb-2">Cancel Escrow</h3>
-            <div className="grid gap-2 text-sm">
-              <label className="flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2">
-                <input
-                  type="radio"
-                  name="cancel-behavior"
-                  checked={cancelBehavior === "cancel_only"}
-                  onChange={() => setCancelBehavior("cancel_only")}
-                />
-                <span>Cancel only (do not send refund)</span>
-              </label>
-              <label className="flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2">
-                <input
-                  type="radio"
-                  name="cancel-behavior"
-                  checked={cancelBehavior === "refund_sender"}
-                  onChange={() => setCancelBehavior("refund_sender")}
-                />
-                <span>Return to sender</span>
-              </label>
-              <label className="flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2">
-                <input
-                  type="radio"
-                  name="cancel-behavior"
-                  checked={cancelBehavior === "pay_recipient"}
-                  onChange={() => setCancelBehavior("pay_recipient")}
-                />
-                <span>Terminate and send to recipient</span>
-              </label>
-            </div>
-            <button
-              onClick={handleCancelEscrow}
-              disabled={actionLoading !== null}
-              className="mt-2 w-full rounded-lg px-3 py-2 text-sm disabled:opacity-50 bg-amber-700 hover:bg-amber-600"
-            >
-              {actionLoading === "cancel" ? "Cancelling..." : "Cancel Escrow"}
-            </button>
+            <p className="text-xs text-neutral-500 mt-4">
+              Escrow cancellation and settlement controls are handled on the admin route hub.
+            </p>
           </section>
         </div>
 
