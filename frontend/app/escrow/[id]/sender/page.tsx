@@ -39,6 +39,7 @@ const COMPLETION_NOTICE_SEEN_KEY = "ss_completion_notice_seen";
 function autoScanIntervalMs(escrow: Escrow | null): number {
   if (!escrow) return AUTO_SCAN_FAST_MS;
   if (!escrow.funded_at) return AUTO_SCAN_FAST_MS;
+  if (escrow.status === "disputed") return AUTO_SCAN_FAST_MS;
   if (
     escrow.status === "release_pending" ||
     escrow.status === "refund_pending"
@@ -273,11 +274,7 @@ export default function SenderEscrowPage() {
   useEffect(() => {
     const runScan = () => {
       if (document.visibilityState !== "visible") return;
-      if (
-        escrow &&
-        (TERMINAL_ESCROW_STATUSES.has(escrow.status) ||
-          escrow.status === "disputed")
-      ) {
+      if (escrow && TERMINAL_ESCROW_STATUSES.has(escrow.status)) {
         return;
       }
       void scanChain(false);
