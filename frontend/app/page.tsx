@@ -79,31 +79,35 @@ export default function Home() {
         </nav>
 
         {/* Hero content */}
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 text-center gap-6 animate-fade-in">
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 text-center gap-8 animate-fade-in">
           <Image
-            src="/logo.webp"
+            src="/logo-icon.webp"
             alt="Secure Shuttle"
-            width={500}
-            height={500}
-            className="rounded drop-shadow-[0_0_80px_rgba(99,102,241,0.3)]"
+            width={180}
+            height={180}
+            className="drop-shadow-[0_0_80px_rgba(99,102,241,0.35)]"
             priority
           />
 
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight leading-tight max-w-3xl">
-            Peer-to-peer escrow,
-            <br />
-            <span className="bg-gradient-to-r from-indigo-400 via-cyan-400 to-emerald-400 bg-clip-text text-transparent">
-              powered by Solana
-            </span>
-          </h1>
+          <div className="flex flex-col items-center gap-3">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-tight max-w-3xl">
+              SecureShuttle
+            </h1>
+            <p className="text-xl sm:text-2xl font-medium">
+              Peer-to-peer escrow,{" "}
+              <span className="bg-gradient-to-r from-indigo-400 via-cyan-400 to-emerald-400 bg-clip-text text-transparent">
+                powered by Solana
+              </span>
+            </p>
+          </div>
 
-          <p className="text-neutral-300 text-lg sm:text-xl max-w-2xl leading-relaxed">
+          <p className="text-neutral-400 text-base sm:text-lg max-w-xl leading-relaxed">
             Stop sending money on faith. SecureShuttle holds payments in escrow
             on-chain until both parties confirm — fast, transparent, and fully
             protected.
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-6 mt-4">
+          <div className="flex flex-wrap items-center justify-center gap-6 mt-2">
             <a
               href="/newEscrow"
               className="hover:scale-105 transition-transform"
